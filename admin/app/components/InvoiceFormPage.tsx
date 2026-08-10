@@ -4,6 +4,36 @@ import type { InvoiceType, Item, Loyalty, Workshop } from "@/lib/supabase";
 import { Icons, Field, CustomSelect, fmtRp } from "./ui";
 import type { Pesanan } from "@/lib/supabase";
 
+// ─── Draft Catatan ────────────────────────────────────────────────
+type CatatanDraft = { id: string; nama: string; isi: string };
+
+const DEFAULT_DRAFTS: CatatanDraft[] = [
+  {
+    id: "workshop-default",
+    nama: "Workshop",
+    isi: "Dengan melakukan pembayaran, peserta dianggap telah membaca dan menyetujui seluruh syarat dan ketentuan yang berlaku.\n\nPeserta yang telah melakukan pembayaran namun berhalangan hadir wajib menginformasikan kepada penyelenggara paling lambat H-2 sebelum workshop. Apabila tidak ada konfirmasi hingga melewati batas waktu tersebut atau peserta tidak hadir, maka biaya yang telah dibayarkan dinyatakan hangus (non-refundable).",
+  },
+];
+
+const DRAFTS_KEY = "invoice_catatan_drafts";
+
+function loadDrafts(): CatatanDraft[] {
+  try {
+    const raw = localStorage.getItem(DRAFTS_KEY);
+    if (!raw) return DEFAULT_DRAFTS;
+    const parsed: CatatanDraft[] = JSON.parse(raw);
+    // Pastikan default draft selalu ada
+    const hasDefault = parsed.some(d => d.id === "workshop-default");
+    return hasDefault ? parsed : [DEFAULT_DRAFTS[0], ...parsed];
+  } catch {
+    return DEFAULT_DRAFTS;
+  }
+}
+
+function saveDrafts(drafts: CatatanDraft[]) {
+  localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
+}
+
 type LineItem = { item_id?: number; description: string; qty: number; satuan: string; harga_satuan: number };
 
 type Props = {
@@ -32,6 +62,16 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
   const [logbookSearch, setLogbookSearch] = useState("");
   const [saveToLogbook, setSaveToLogbook] = useState(false);
 
+  // Draft catatan
+  const [drafts, setDrafts] = useState<CatatanDraft[]>([]);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [showAddDraft, setShowAddDraft] = useState(false);
+  const [newDraftNama, setNewDraftNama] = useState("");
+  const [newDraftIsi, setNewDraftIsi] = useState("");
+  const [draftPreview, setDraftPreview] = useState<string | null>(null);
+
+  useEffect(() => { setDrafts(loadDrafts()); }, []);
+
   const [form, setForm] = useState({
     invoice_type_id: "",
     invoice_date: new Date().toISOString().split("T")[0],
@@ -41,7 +81,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
     customer_email: "",
     discount: "0",
     status_pembayaran: "UNPAID",
-    catatan: "Dengan melakukan pembayaran, peserta dianggap telah membaca dan menyetujui seluruh syarat dan ketentuan yang berlaku.\n\nPeserta yang telah melakukan pembayaran namun berhalangan hadir wajib menginformasikan kepada penyelenggara paling lambat H-2 sebelum workshop. Apabila tidak ada konfirmasi hingga melewati batas waktu tersebut atau peserta tidak hadir, maka biaya yang telah dibayarkan dinyatakan hangus (non-refundable).",
+    catatan: "",
     pesanan_id: prefillPesanan?.id ?? null,
   });
   const [items, setItems] = useState<LineItem[]>([]);
@@ -295,8 +335,49 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
 
           {/* Catatan */}
           <div className="card" style={{ padding: 18 }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginBottom: 10, letterSpacing: "0.06em", textTransform: "uppercase" }}>Catatan</p>
-            <textarea className="input" rows={4} value={form.catatan} onChange={e => setForm(f => ({ ...f, catatan: e.target.value }))} />
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Catatan</p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => { setShowDraftModal(true); setShowAddDraft(false); setDraftPreview(null); }}
+                style={{ fontSize: 11, gap: 5 }}
+              >
+                <span style={{ fontSize: 13 }}>📋</span> Pilih Draft
+              </button>
+            </div>
+
+            {/* Textarea */}
+            <textarea
+              className="input"
+              rows={5}
+              placeholder="Tulis catatan invoice, atau pilih dari draft di atas..."
+              value={form.catatan}
+              onChange={e => setForm(f => ({ ...f, catatan: e.target.value }))}
+              style={{ resize: "vertical" }}
+            />
+
+            {/* Hint chips draf */}
+            {drafts.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                {drafts.map(d => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, catatan: d.isi }))}
+                    style={{
+                      padding: "3px 10px", borderRadius: 20, fontSize: 11,
+                      background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.25)",
+                      color: "#a78bfa", cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
+                    }}
+                    title={`Klik untuk pakai draft: ${d.nama}`}
+                  >
+                    📋 {d.nama}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", padding: "12px" }} onClick={save} disabled={saving || !form.invoice_type_id || !form.customer_name}>
@@ -448,6 +529,143 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
                       </span>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Draft Catatan Modal ── */}
+      {showDraftModal && (
+        <div className="modal-overlay" onClick={() => { setShowDraftModal(false); setShowAddDraft(false); }}>
+          <div className="modal-box" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
+            {/* Header modal */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+              <div>
+                <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>📋 Draft Catatan</h3>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Pilih template catatan atau tambah draft baru</p>
+              </div>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => { setShowDraftModal(false); setShowAddDraft(false); }}><Icons.X /></button>
+            </div>
+
+            {/* Daftar draft */}
+            <div style={{ padding: "12px 16px", maxHeight: "45vh", overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+              {drafts.map(d => (
+                <div
+                  key={d.id}
+                  style={{
+                    borderRadius: 10, border: "1px solid var(--border)",
+                    background: draftPreview === d.id ? "rgba(124,58,237,0.08)" : "var(--bg-card-2)",
+                    borderColor: draftPreview === d.id ? "rgba(124,58,237,0.35)" : "var(--border)",
+                    overflow: "hidden", transition: "all 0.15s",
+                  }}
+                >
+                  {/* Draft header row */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
+                    <span style={{ fontSize: 18 }}>📋</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)" }}>{d.nama}</p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {d.isi.slice(0, 80)}{d.isi.length > 80 ? "…" : ""}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: 11 }}
+                        onClick={() => setDraftPreview(draftPreview === d.id ? null : d.id)}
+                      >
+                        {draftPreview === d.id ? "Tutup" : "Preview"}
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: 11 }}
+                        onClick={() => { setForm(f => ({ ...f, catatan: d.isi })); setShowDraftModal(false); setShowAddDraft(false); }}
+                      >
+                        Pakai
+                      </button>
+                      <button
+                          className="btn btn-danger btn-sm btn-icon"
+                          onClick={() => {
+                            const next = drafts.filter(x => x.id !== d.id);
+                            setDrafts(next);
+                            saveDrafts(next);
+                            if (draftPreview === d.id) setDraftPreview(null);
+                          }}
+                          title="Hapus draft"
+                        >
+                          <Icons.Trash />
+                        </button>
+                    </div>
+                  </div>
+
+                  {/* Preview isi */}
+                  {draftPreview === d.id && (
+                    <div style={{ padding: "10px 14px 12px", borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.12)" }}>
+                      <p style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-line", lineHeight: 1.6 }}>{d.isi}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {drafts.length === 0 && (
+                <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-muted)" }}>
+                  <p style={{ fontSize: 32, marginBottom: 8 }}>📭</p>
+                  <p style={{ fontSize: 13 }}>Belum ada draft. Tambah draft pertamamu!</p>
+                </div>
+              )}
+            </div>
+
+            {/* Form tambah draft baru */}
+            <div style={{ borderTop: "1px solid var(--border)", padding: "14px 20px" }}>
+              {!showAddDraft ? (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => { setShowAddDraft(true); setNewDraftNama(""); setNewDraftIsi(""); }}
+                >
+                  <Icons.Plus /> Tambahkan Draft Baru
+                </button>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Draft Baru</p>
+                  <input
+                    className="input"
+                    placeholder="Nama draft (mis: Workshop, Produk, dll)..."
+                    value={newDraftNama}
+                    onChange={e => setNewDraftNama(e.target.value)}
+                    autoFocus
+                  />
+                  <textarea
+                    className="input"
+                    rows={4}
+                    placeholder="Isi template catatan..."
+                    value={newDraftIsi}
+                    onChange={e => setNewDraftIsi(e.target.value)}
+                    style={{ resize: "vertical" }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: 1, justifyContent: "center" }}
+                      disabled={!newDraftNama.trim() || !newDraftIsi.trim()}
+                      onClick={() => {
+                        const next: CatatanDraft[] = [
+                          ...drafts,
+                          { id: `draft-${Date.now()}`, nama: newDraftNama.trim(), isi: newDraftIsi.trim() },
+                        ];
+                        setDrafts(next);
+                        saveDrafts(next);
+                        setShowAddDraft(false);
+                        setNewDraftNama("");
+                        setNewDraftIsi("");
+                      }}
+                    >
+                      <Icons.Save /> Simpan Draft
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => setShowAddDraft(false)}>Batal</button>
+                  </div>
                 </div>
               )}
             </div>
