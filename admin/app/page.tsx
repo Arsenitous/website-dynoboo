@@ -541,33 +541,35 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
           </div>
 
           {/* Pre-Orders Terbaru (Chatbot) */}
-          <div className="card" style={{ padding: 18 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Pesanan Pre-Order Chatbot</p>
-              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("pesanan")}>Semua →</button>
-            </div>
+          {false && (
+            <div className="card" style={{ padding: 18 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Pesanan Pre-Order Chatbot</p>
+                <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("pesanan")}>Semua →</button>
+              </div>
 
-            {pesanan.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "14px 0", color: "var(--text-muted)", fontSize: 12 }}>
-                Belum ada pesanan pre-order masuk.
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {pesanan.slice(0, 2).map(p => (
-                  <div key={p.id} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--bg-card-2)", border: "1px solid var(--border)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
-                      <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-primary)" }}>{p.nama}</p>
-                      <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{fmtDate(p.created_at)}</span>
+              {pesanan.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "14px 0", color: "var(--text-muted)", fontSize: 12 }}>
+                  Belum ada pesanan pre-order masuk.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {pesanan.slice(0, 2).map(p => (
+                    <div key={p.id} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--bg-card-2)", border: "1px solid var(--border)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
+                        <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-primary)" }}>{p.nama}</p>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{fmtDate(p.created_at)}</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: "#38bdf8", marginBottom: 6 }}>🛒 {p.produk}</p>
+                      <button className="btn btn-primary btn-sm" style={{ width: "100%", justifyContent: "center" }} onClick={() => onNavigate("invoice-form", p)}>
+                        <Icons.Receipt /> Process to Invoice
+                      </button>
                     </div>
-                    <p style={{ fontSize: 11, color: "#38bdf8", marginBottom: 6 }}>🛒 {p.produk}</p>
-                    <button className="btn btn-primary btn-sm" style={{ width: "100%", justifyContent: "center" }} onClick={() => onNavigate("invoice-form", p)}>
-                      <Icons.Receipt /> Process to Invoice
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Status Pembayaran breakdown (Moved below Chatbot pre-orders) */}
           <div className="card" style={{ padding: 18 }}>
