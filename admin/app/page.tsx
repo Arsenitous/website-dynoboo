@@ -75,25 +75,25 @@ const NAV_GROUPS = [
       { id: "loyalty", label: "Loyalty Logbook", icon: <Icons.Users /> },
     ],
   },
-  {
-    key: "CHATBOT",
-    sub: [
-      {
-        label: "Data Bot",
-        items: [
-          { id: "knowledge", label: "Knowledge Base", icon: <Icons.Brain /> },
-        ],
-      },
-      {
-        label: "Aktivitas",
-        items: [
-          { id: "pesanan", label: "Pesanan (Pre-order)", icon: <Icons.Orders /> },
-          { id: "riwayat-pesanan", label: "Riwayat Pesanan", icon: <Icons.CheckCircle /> },
-          { id: "chatlogs", label: "Chat Logs", icon: <Icons.Chat /> },
-        ],
-      },
-    ],
-  },
+  // {
+  //   key: "CHATBOT",
+  //   sub: [
+  //     {
+  //       label: "Data Bot",
+  //       items: [
+  //         { id: "knowledge", label: "Knowledge Base", icon: <Icons.Brain /> },
+  //       ],
+  //     },
+  //     {
+  //       label: "Aktivitas",
+  //       items: [
+  //         { id: "pesanan", label: "Pesanan (Pre-order)", icon: <Icons.Orders /> },
+  //         { id: "riwayat-pesanan", label: "Riwayat Pesanan", icon: <Icons.CheckCircle /> },
+  //         { id: "chatlogs", label: "Chat Logs", icon: <Icons.Chat /> },
+  //       ],
+  //     },
+  //   ],
+  // },
   {
     key: "PENGATURAN",
     items: [
@@ -116,7 +116,7 @@ const GROUP_META: Record<string, { color: string; bg: string; emoji: string }> =
   "PRODUK & WS": { color: "#a78bfa", bg: "rgba(167,139,250,0.18)", emoji: "📦" },
   INVOICE:       { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "🧾" },
   LOYALTY:      { color: "#fb7185", bg: "rgba(251,113,133,0.18)", emoji: "👥" },
-  CHATBOT:       { color: "#34d399", bg: "rgba(52,211,153,0.18)",  emoji: "🤖" },
+  // CHATBOT:       { color: "#34d399", bg: "rgba(52,211,153,0.18)",  emoji: "🤖" },
   PENGATURAN:    { color: "#f59e0b", bg: "rgba(245,158,11,0.18)",  emoji: "⚙️" },
   EXTRA:         { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "📌" },
 };
