@@ -1020,13 +1020,13 @@ function WorkshopsPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div><h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>Workshops</h2><p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>{workshops.length} workshop terdaftar</p></div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={load}><Icons.Refresh /> Refresh</button>
           <button 
             className="btn btn-secondary btn-sm" 
             onClick={() => setPageViewMode(v => v === "list" ? "calendar" : "list")}
           >
             {pageViewMode === "list" ? <><CalendarIcon size={16} /> Lihat Kalender</> : <><LayoutList size={16} /> Lihat List</>}
           </button>
+          <button className="btn btn-secondary btn-sm" onClick={load}><Icons.Refresh /> Refresh</button>
           {canCreate && <button className="btn btn-primary btn-sm" onClick={() => openAdd()}><Icons.Plus /> Tambah Workshop</button>}
         </div>
       </div>
