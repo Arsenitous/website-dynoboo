@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { Calendar as CalendarIcon, LayoutList, ChevronLeft, ChevronRight, Plus as PlusIcon } from "lucide-react";
 import type { KnowledgeBase, Workshop, Pesanan, ChatLog, PilihanJawaban, AdminUser, Invoice, Item } from "@/lib/supabase";
 
 // ─── Import components ────────────────────────────────────────────────────────
@@ -782,6 +783,188 @@ function KnowledgePage() {
   );
 }
 
+function WorkshopCalendar({ 
+  workshops, 
+  onAddWorkshop, 
+  onEditWorkshop 
+}: { 
+  workshops: Workshop[], 
+  onAddWorkshop: (date: string) => void, 
+  onEditWorkshop: (w: Workshop) => void 
+}) {
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [todayStr] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+  const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+  const handlePrev = () => {
+    if (viewMode === "month") {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    } else {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 7));
+    }
+  };
+
+  const handleNext = () => {
+    if (viewMode === "month") {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    } else {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7));
+    }
+  };
+
+  const getMonthDays = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+    const firstDay = getFirstDayOfMonth(year, month);
+    
+    const days = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      days.push({ day: i, dateStr });
+    }
+    return days;
+  };
+
+  const getWeekDays = () => {
+    const curr = new Date(currentDate);
+    const first = curr.getDate() - curr.getDay(); 
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(curr.getFullYear(), curr.getMonth(), first + i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      days.push({ day: d.getDate(), dateStr });
+    }
+    return days;
+  };
+
+  const daysToRender = viewMode === "month" ? getMonthDays() : getWeekDays();
+  const weekDaysHeader = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button className="btn btn-secondary btn-icon" onClick={handlePrev}><ChevronLeft size={16} /></button>
+            <button className="btn btn-secondary btn-icon" onClick={handleNext}><ChevronRight size={16} /></button>
+          </div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
+            {viewMode === "month" 
+              ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
+              : `Minggu, ${daysToRender[0]?.day} ${monthNames[new Date(daysToRender[0]?.dateStr || currentDate).getMonth()]} - ${daysToRender[6]?.day} ${monthNames[new Date(daysToRender[6]?.dateStr || currentDate).getMonth()]} ${currentDate.getFullYear()}`
+            }
+          </h3>
+        </div>
+        <div style={{ display: "flex", background: "var(--bg-secondary)", padding: 4, borderRadius: 8 }}>
+          <button 
+            className={`btn btn-sm ${viewMode === "month" ? "btn-primary" : ""}`}
+            style={{ padding: "6px 12px", background: viewMode === "month" ? "" : "transparent", border: "none", color: viewMode === "month" ? "#fff" : "var(--text-muted)" }}
+            onClick={() => setViewMode("month")}
+          >
+            Bulan
+          </button>
+          <button 
+            className={`btn btn-sm ${viewMode === "week" ? "btn-primary" : ""}`}
+            style={{ padding: "6px 12px", background: viewMode === "week" ? "" : "transparent", border: "none", color: viewMode === "week" ? "#fff" : "var(--text-muted)" }}
+            onClick={() => setViewMode("week")}
+          >
+            Minggu
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 1, background: "var(--border)", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+
+        {weekDaysHeader.map((d, i) => (
+          <div key={i} style={{ padding: "10px", textAlign: "center", fontWeight: 600, fontSize: 13, color: "var(--text-muted)", background: "var(--bg-card)" }}>
+            {d}
+          </div>
+        ))}
+        {daysToRender.map((d, i) => {
+          if (!d) return <div key={`empty-${i}`} style={{ background: "rgba(0,0,0,0.1)", minHeight: viewMode === "month" ? 120 : 250 }} />;
+          
+          const dayWorkshops = workshops.filter(w => w.tanggal === d.dateStr);
+          const isToday = d.dateStr === todayStr;
+
+          return (
+            <div 
+              key={d.dateStr} 
+              style={{ 
+                minHeight: viewMode === "month" ? 120 : 250, 
+                padding: "8px",
+                background: isToday ? "rgba(56,189,248,0.05)" : "var(--bg-card)",
+                position: "relative",
+                cursor: "pointer",
+                transition: "background 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                const target = e.currentTarget;
+                if(!isToday) target.style.background = "rgba(255,255,255,0.03)";
+                const addIcon = target.querySelector('.add-icon') as HTMLElement;
+                if(addIcon) addIcon.style.opacity = "1";
+              }}
+              onMouseLeave={(e) => {
+                const target = e.currentTarget;
+                target.style.background = isToday ? "rgba(56,189,248,0.05)" : "var(--bg-card)";
+                const addIcon = target.querySelector('.add-icon') as HTMLElement;
+                if(addIcon) addIcon.style.opacity = "0";
+              }}
+              onClick={() => onAddWorkshop(d.dateStr)}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <span style={{ 
+                  fontSize: 14, 
+                  fontWeight: isToday ? 700 : 500, 
+                  color: isToday ? "#38bdf8" : "var(--text-primary)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 28, height: 28, borderRadius: "50%",
+                  background: isToday ? "rgba(56,189,248,0.15)" : "transparent"
+                }}>
+                  {d.day}
+                </span>
+                <span className="add-icon" style={{ opacity: 0, color: "var(--text-muted)", transition: "opacity 0.2s" }}>
+                  <PlusIcon size={14} />
+                </span>
+              </div>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {dayWorkshops.map(w => (
+                  <div 
+                    key={w.id} 
+                    onClick={(e) => { e.stopPropagation(); onEditWorkshop(w); }}
+                    style={{
+                      background: !w.is_active ? "rgba(239,68,68,0.15)" : w.status === "ACTIVE" ? "rgba(52,211,153,0.15)" : w.status === "UPCOMING" ? "rgba(251,191,36,0.15)" : "rgba(148,163,184,0.15)",
+                      borderLeft: `3px solid ${!w.is_active ? "#ef4444" : w.status === "ACTIVE" ? "#34d399" : w.status === "UPCOMING" ? "#fbbf24" : "#94a3b8"}`,
+                      padding: "4px 6px",
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--text-primary)",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}
+                    title={`${w.nama_workshop}\n${w.harga_normal ? `Rp ${w.harga_normal}` : ''}`}
+                  >
+                    {w.nama_workshop}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function WorkshopsPage() {
   const hasAccess = useAccess();
   const canCreate = hasAccess("produk_ws", "create");
@@ -792,6 +975,7 @@ function WorkshopsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [pageViewMode, setPageViewMode] = useState<"list" | "calendar">("list");
   const [editing, setEditing] = useState<Workshop | null>(null);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -802,7 +986,7 @@ function WorkshopsPage() {
 
   const load = useCallback(async () => { setLoading(true); const r = await fetch("/api/workshops"); setWorkshops(await r.json()); setLoading(false); }, []);
   useEffect(() => { load(); }, [load]);
-  const openAdd = () => { setForm(emptyForm); setAdding(true); setEditing(null); };
+  const openAdd = (dateStr?: string) => { setForm({ ...emptyForm, tanggal: dateStr || "" }); setAdding(true); setEditing(null); };
   const openEdit = (w: Workshop) => { setForm({ nama_workshop: w.nama_workshop, tanggal: w.tanggal, harga_normal: w.harga_normal ?? "", harga_promo: w.harga_promo ?? "", fasilitas: w.fasilitas ?? "", status: w.status, is_active: w.is_active ?? true }); setEditing(w); setAdding(false); };
   const save = async () => {
     setSaving(true);
@@ -837,7 +1021,13 @@ function WorkshopsPage() {
         <div><h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>Workshops</h2><p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>{workshops.length} workshop terdaftar</p></div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={load}><Icons.Refresh /> Refresh</button>
-          {canCreate && <button className="btn btn-primary btn-sm" onClick={openAdd}><Icons.Plus /> Tambah Workshop</button>}
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => setPageViewMode(v => v === "list" ? "calendar" : "list")}
+          >
+            {pageViewMode === "list" ? <><CalendarIcon size={16} /> Lihat Kalender</> : <><LayoutList size={16} /> Lihat List</>}
+          </button>
+          {canCreate && <button className="btn btn-primary btn-sm" onClick={() => openAdd()}><Icons.Plus /> Tambah Workshop</button>}
         </div>
       </div>
       {/* Summary Cards */}
@@ -876,20 +1066,26 @@ function WorkshopsPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }}>
-            <Icons.Search />
-          </span>
-          <input
-            className="input"
-            style={{ paddingLeft: 36, width: "100%", height: 38 }}
-            placeholder="Cari nama workshop..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+      {pageViewMode === "list" && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }}>
+              <Icons.Search />
+            </span>
+            <input
+              className="input"
+              style={{ paddingLeft: 36, width: "100%", height: 38 }}
+              placeholder="Cari nama workshop..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
+      )}
+      
+      {pageViewMode === "calendar" ? (
+        <WorkshopCalendar workshops={filteredWorkshops} onAddWorkshop={openAdd} onEditWorkshop={openEdit} />
+      ) : (
       <div className="card" style={{ overflow: "hidden" }}>
         {loading ? <div style={{ padding: 20 }}>{[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 52, marginBottom: 8 }} />)}</div> : (
           <div className="table-responsive">
@@ -934,6 +1130,7 @@ function WorkshopsPage() {
           </div>
         )}
       </div>
+      )}
       {(adding || !!editing) && (
         <Modal title={editing ? "Edit Workshop" : "Tambah Workshop"} onClose={() => { setAdding(false); setEditing(null); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1699,8 +1896,10 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
     else if (n.type === "invoice") onNavigate("invoice-list");
   };
 
+  // Avoid Date.now() during render for React Compiler purity rules
+  const [now] = useState(() => Date.now());
   const timeAgo = (d: Date) => {
-    const diff = Math.floor((Date.now() - d.getTime()) / 60000);
+    const diff = Math.floor((now - d.getTime()) / 60000);
     if (diff < 1) return "Baru saja";
     if (diff < 60) return `${diff} mnt lalu`;
     return `${Math.floor(diff / 60)} jam lalu`;
