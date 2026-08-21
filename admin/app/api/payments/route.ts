@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
   await supabase
     .from("invoices")
-    .update({ dp_amount: totalPaid, sisa_tagihan: sisaTagihan, status_pembayaran: newStatus })
+    .update({ dp_amount: totalPaid, status_pembayaran: newStatus })
     .eq("id", invoiceId);
 
   return Response.json({ payment, new_status: newStatus }, { status: 201 });

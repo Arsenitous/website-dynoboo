@@ -19,7 +19,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
     let newStatus = "UNPAID";
     if (totalPaid >= grandTotal && grandTotal > 0) newStatus = "PAID";
     else if (totalPaid > 0) newStatus = "DP";
-    await supabase.from("invoices").update({ dp_amount: totalPaid, sisa_tagihan: sisaTagihan, status_pembayaran: newStatus }).eq("id", invoiceId);
+    await supabase.from("invoices").update({ dp_amount: totalPaid, status_pembayaran: newStatus }).eq("id", invoiceId);
   }
   return Response.json({ ok: true });
 }
