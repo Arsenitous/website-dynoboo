@@ -18,6 +18,9 @@ import CompanyPage from "./components/CompanyPage";
 import AiAssistantPage from "./components/AiAssistantPage";
 import LoyaltyPage from "./components/LoyaltyPage";
 import MonthlyReportPage from "./components/MonthlyReportPage";
+import FinancialPage from "./components/FinancialPage";
+import FinancialReportPage from "./components/FinancialReportPage";
+import InvoiceTransactionsPage from "./components/InvoiceTransactionsPage";
 import { AccessContext, useAccess } from "./components/AccessContext";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -26,6 +29,7 @@ type Page =
   | "katalog" | "stok"
   | "invoice-list" | "invoice-form" | "invoice-detail" | "invoice-types"
   | "loyalty" | "laporan-penjualan"
+  | "transaksi-invoice" | "laporan-finansial" | "rekap-finansial"
   | "knowledge" | "workshops" | "pesanan" | "riwayat-pesanan" | "chatlogs"
   | "company" | "access" | "ai-assistant" | "manual";
 
@@ -76,6 +80,24 @@ const NAV_GROUPS = [
       { id: "loyalty", label: "Loyalty Logbook", icon: <Icons.Users /> },
     ],
   },
+  {
+    key: "FINANSIAL",
+    sub: [
+      {
+        label: "Cashflow",
+        items: [
+          { id: "transaksi-invoice", label: "Transaksi Invoice", icon: <Icons.Receipt /> },
+          { id: "laporan-finansial", label: "Laporan Finansial", icon: <Icons.BarChart /> },
+        ],
+      },
+      {
+        label: "Analitik",
+        items: [
+          { id: "rekap-finansial", label: "Rekap Finansial", icon: <Icons.BarChart /> },
+        ],
+      },
+    ],
+  },
   // {
   //   key: "CHATBOT",
   //   sub: [
@@ -116,7 +138,8 @@ const GROUP_META: Record<string, { color: string; bg: string; emoji: string }> =
   MENU:          { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "🏠" },
   "PRODUK & WS": { color: "#a78bfa", bg: "rgba(167,139,250,0.18)", emoji: "📦" },
   INVOICE:       { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "🧾" },
-  LOYALTY:      { color: "#fb7185", bg: "rgba(251,113,133,0.18)", emoji: "👥" },
+  LOYALTY:       { color: "#fb7185", bg: "rgba(251,113,133,0.18)", emoji: "👥" },
+  FINANSIAL:     { color: "#10b981", bg: "rgba(16,185,129,0.18)",  emoji: "💰" },
   // CHATBOT:       { color: "#34d399", bg: "rgba(52,211,153,0.18)",  emoji: "🤖" },
   PENGATURAN:    { color: "#f59e0b", bg: "rgba(245,158,11,0.18)",  emoji: "⚙️" },
   EXTRA:         { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "📌" },
@@ -1519,8 +1542,10 @@ function ChatLogsPage() {
 const MODULES = [
   { id: "produk_ws", label: "Produk & WS", desc: "Katalog Produk, Workshops, Stok & Kuota" },
   { id: "invoice", label: "Invoice", desc: "Daftar Invoice, Tipe Invoice, Pesanan" },
-  { id: "customer", label: "Customer", desc: "Data Customer, Logbook Pelanggan" },
-  { id: "chatbot", label: "Chatbot", desc: "Knowledge Base, Chat Logs, Riwayat Pesanan" },
+  { id: "loyalty", label: "Loyalty", desc: "Loyalty Logbook" },
+  { id: "finansial", label: "Finansial", desc: "Laporan Finansial & Rekap Cashflow" },
+  // { id: "customer", label: "Customer", desc: "Data Customer, Logbook Pelanggan" },
+  // { id: "chatbot", label: "Chatbot", desc: "Knowledge Base, Chat Logs, Riwayat Pesanan" },
   { id: "pengaturan", label: "Pengaturan", desc: "Profil Toko, Access Control (Kelola Admin)" }
 ];
 const ACTIONS = [
@@ -1637,11 +1662,13 @@ function AccessPage() {
                     <td><span className={`badge ${u.role === "superadmin" ? "badge-ai" : "badge-form"}`}>{u.role === "superadmin" ? "⭐ Superadmin" : "👤 Admin"}</span></td>
                     <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{fmtDate(u.created_at)}</td>
                     <td>
-                      {u.role !== "superadmin" && (
+                      {u.username !== "superadmin" ? (
                         <div style={{ display: "flex", gap: 6 }}>
                           {canUpdate && <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openEdit(u)}><span style={{ fontSize: 14 }}>✏️</span></button>}
                           {canDelete && <button className="btn btn-danger btn-sm btn-icon" onClick={() => setDeletingUser(u)}><Icons.Trash /></button>}
                         </div>
+                      ) : (
+                        <span style={{ fontSize: 11, color: "var(--text-subtle)", fontStyle: "italic" }}>—</span>
                       )}
                     </td>
                   </tr>
@@ -2222,6 +2249,8 @@ export default function AdminPage() {
     "invoice-list": "Daftar Invoice", "invoice-form": "Buat Invoice",
     "invoice-detail": "Detail Invoice", "invoice-types": "Tipe Invoice",
     loyalty: "Loyalty Logbook", "laporan-penjualan": "Laporan Penjualan",
+    "transaksi-invoice": "Transaksi Invoice",
+    "laporan-finansial": "Laporan Finansial", "rekap-finansial": "Rekap Finansial",
     knowledge: "Knowledge Base", workshops: "Workshops",
     pesanan: "Pesanan", "riwayat-pesanan": "Riwayat Pesanan", chatlogs: "Chat Logs",
     company: "Profil Toko", access: "Access Control", "ai-assistant": "AI Assistant",
@@ -2244,6 +2273,9 @@ export default function AdminPage() {
       case "chatlogs": return <ChatLogsPage />;
       case "loyalty": return <LoyaltyPage onNavigate={handleNavigate} />;
       case "laporan-penjualan": return <MonthlyReportPage onNavigate={handleNavigate} />;
+      case "transaksi-invoice": return <InvoiceTransactionsPage />;
+      case "laporan-finansial": return <FinancialPage />;
+      case "rekap-finansial": return <FinancialReportPage />;
       case "company": return <CompanyPage />;
       case "access": return <AccessPage />;
       case "ai-assistant": return <AiAssistantPage />;
@@ -2285,6 +2317,7 @@ export default function AdminPage() {
             if (group.key === "INVOICE") return hasAccess("invoice");
             if (group.key === "CUSTOMER") return hasAccess("customer");
             if (group.key === "CHATBOT") return hasAccess("chatbot");
+            if (group.key === "FINANSIAL") return hasAccess("finansial");
             if (group.key === "PENGATURAN") return hasAccess("pengaturan");
             return true;
           }).map((group) => (

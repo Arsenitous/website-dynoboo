@@ -129,9 +129,29 @@ body { background: var(--bg-base); color: var(--text-primary); font-family: var(
 .data-table tr:hover td { background: var(--bg-hover); }
 
 /* ─── Inputs ──────────────────────────────────────────────────────────────── */
-.input { width: 100%; background: var(--bg-card-2); border: 1px solid var(--border-2); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text-primary); outline: none; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; }
+.input { width: 100%; background: var(--bg-card-2); border: 1px solid var(--border-2); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text-primary); outline: none; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; color-scheme: dark; }
 .input:focus { border-color: rgba(56,189,248,0.7); box-shadow: 0 0 0 3px rgba(56,189,248,0.15); background: var(--bg-hover); }
 .input::placeholder { color: var(--text-muted); }
+
+/* ── Fix native select dropdown options in dark mode ── */
+.input option,
+select option {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
+.input option:hover,
+select option:hover {
+  background-color: #0f172a;
+}
+
+/* Light mode override */
+.light .input { color-scheme: light; }
+.light .input option,
+.light select option {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
 
 /* ─── Custom Select ───────────────────────────────────────────────────────── */
 .custom-select-wrapper { position: relative; }

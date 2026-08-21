@@ -192,3 +192,35 @@ export type Payment = {
   dicatat_oleh: string;
   created_at: string;
 };
+
+// ─── Financial Report Types ───────────────────────────────────────────────────
+
+export type FinancialCategory = {
+  id: number;
+  nama: string;
+  tipe: "PEMASUKAN" | "PENGELUARAN";
+  warna: string;
+  created_at: string;
+};
+
+export type FinancialTransaction = {
+  id: number;
+  tipe: "PEMASUKAN" | "PENGELUARAN";
+  kategori_id: number | null;
+  kategori?: FinancialCategory;
+  nominal: number;
+  detail: string | null;
+  deskripsi: string | null;
+  tanggal: string;
+  payment_id: number | null;   // linked invoice payment (if imported)
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+
+// Payment enriched with invoice info + import status
+export type PaymentWithInvoice = Payment & {
+  invoice?: Pick<Invoice, "id" | "invoice_no" | "customer_name" | "customer_contact" | "grand_total" | "sisa_tagihan" | "status_pembayaran" | "catatan">;
+  sudah_diimport: boolean;
+  financial_transaction_id?: number;
+};

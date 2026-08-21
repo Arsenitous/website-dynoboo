@@ -42,8 +42,14 @@ export default function MonthlyReportPage({ onNavigate }: Props) {
   // Global summaries
   const activeInvoices = invoices.filter(i => i.status_pembayaran !== "CANCELLED");
   const totalTransactions = activeInvoices.length;
-  const totalRevenue = activeInvoices.filter(i => i.status_pembayaran === "PAID").reduce((sum, i) => sum + Number(i.grand_total), 0);
-  const totalUnpaid = activeInvoices.filter(i => i.status_pembayaran === "UNPAID" || i.status_pembayaran === "DP").reduce((sum, i) => sum + Number(i.sisa_tagihan), 0);
+  const totalRevenue = activeInvoices.reduce((sum, i) => {
+    if (i.status_pembayaran === "PAID") return sum + Number(i.grand_total);
+    if (i.status_pembayaran === "DP") return sum + (Number(i.grand_total) - Number(i.sisa_tagihan));
+    return sum;
+  }, 0);
+  const totalUnpaid = activeInvoices
+    .filter(i => i.status_pembayaran === "UNPAID" || i.status_pembayaran === "DP")
+    .reduce((sum, i) => sum + Number(i.sisa_tagihan), 0);
 
   // Aggregate data by month or year
   const grouped = activeInvoices.reduce((acc, inv) => {
@@ -69,8 +75,14 @@ export default function MonthlyReportPage({ onNavigate }: Props) {
 
     acc[key].transactions += 1;
     if (inv.status_pembayaran === "PAID") {
+      // Full revenue
       acc[key].revenue += Number(inv.grand_total);
-    } else if (inv.status_pembayaran === "UNPAID" || inv.status_pembayaran === "DP") {
+    } else if (inv.status_pembayaran === "DP") {
+      // DP: revenue = amount already paid, unpaid = remaining sisa
+      const sudahDibayar = Number(inv.grand_total) - Number(inv.sisa_tagihan);
+      acc[key].revenue += sudahDibayar;
+      acc[key].unpaid += Number(inv.sisa_tagihan);
+    } else if (inv.status_pembayaran === "UNPAID") {
       acc[key].unpaid += Number(inv.sisa_tagihan);
     }
 
