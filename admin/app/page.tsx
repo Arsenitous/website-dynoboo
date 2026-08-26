@@ -2381,7 +2381,7 @@ export default function AdminPage() {
       </div>
 
       {/* ── Floating AI Chat Bubble ───────────────────────────────────────── */}
-      {aiOpen && (
+      {currentPage !== "ai-assistant" && aiOpen && (
         <div className="ai-chat-panel no-print" style={{
           position: "fixed", zIndex: 9998,
           ...(fabPos.x !== -1
@@ -2416,7 +2416,8 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Bubble button */}
+      {/* Bubble button — hidden on AI Assistant page */}
+      {currentPage !== "ai-assistant" && (
       <button
         className="no-print"
         onPointerDown={handleFabPointerDown}
@@ -2437,6 +2438,7 @@ export default function AdminPage() {
       >
         {aiOpen ? "✕" : "🦖"}
       </button>
+      )}
 
       <style>{`
         @keyframes chatBubbleIn {
