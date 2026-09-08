@@ -7,8 +7,9 @@ import { Calendar as CalendarIcon, LayoutList, ChevronLeft, ChevronRight, Plus a
 import type { KnowledgeBase, Workshop, Pesanan, ChatLog, PilihanJawaban, AdminUser, Invoice, Item } from "@/lib/supabase";
 
 // ─── Import components ────────────────────────────────────────────────────────
-import { Icons, CustomSelect, Modal, StatCard, Field, InvoiceStatusBadge, fmtRp, ToastProvider, useToast, SortIcon } from "./components/ui";
+import { Icons, CustomSelect, Modal, StatCard, Field, InvoiceStatusBadge, fmtRp, ToastProvider, useToast, SortIcon, TablePaginationTop, TablePaginationBottom } from "./components/ui";
 import { useSort } from "@/lib/useSort";
+import { usePagination } from "@/lib/usePagination";
 import KatalogPage from "./components/KatalogPage";
 import StokPage from "./components/StokPage";
 import InvoiceListPage from "./components/InvoiceListPage";
@@ -300,6 +301,7 @@ function InvoiceTypesPage() {
   
   const filteredTypes = types.filter(t => t.nama.toLowerCase().includes(search.toLowerCase()) || t.prefix.toLowerCase().includes(search.toLowerCase()) || (t.deskripsi || "").toLowerCase().includes(search.toLowerCase()));
   const { sortedItems: sortedTypes, handleSort, sortConfig } = useSort(filteredTypes);
+  const pagination = usePagination(sortedTypes);
   const openAdd = () => { setForm({ nama: "", prefix: "", deskripsi: "", is_active: true }); setAdding(true); setEditing(null); };
   const openEdit = (t: InvoiceTypeRow) => { setForm({ nama: t.nama, prefix: t.prefix, deskripsi: t.deskripsi ?? "", is_active: t.is_active }); setEditing(t); setAdding(false); };
   const save = async () => {
@@ -333,10 +335,18 @@ function InvoiceTypesPage() {
         </div>
       </div>
       <div className="card" style={{ overflow: "hidden" }}>
+        <TablePaginationTop
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.handlePageSizeChange}
+        />
         {loading ? <div style={{ padding: 20 }}><div className="skeleton" style={{ height: 52 }} /></div> : (
           <table className="data-table">
             <thead>
               <tr>
+                <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                 <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("nama")}>Nama <SortIcon sortConfig={sortConfig} columnKey="nama" /></th>
                 <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("prefix")}>Prefix <SortIcon sortConfig={sortConfig} columnKey="prefix" /></th>
                 <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("deskripsi")}>Deskripsi <SortIcon sortConfig={sortConfig} columnKey="deskripsi" /></th>
@@ -346,8 +356,13 @@ function InvoiceTypesPage() {
               </tr>
             </thead>
             <tbody>
-              {sortedTypes.map(t => (
+              {pagination.paginatedItems.map((t, idx) => (
                 <tr key={t.id}>
+                  <td style={{ textAlign: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                      {pagination.startIndex + idx}
+                    </span>
+                  </td>
                   <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t.nama}</td>
                   <td><code style={{ background: "rgba(56,189,248,0.12)", padding: "2px 8px", borderRadius: 4, color: "#38bdf8", fontSize: 12 }}>{t.prefix}</code></td>
                   <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{t.deskripsi ?? "—"}</td>
@@ -363,10 +378,16 @@ function InvoiceTypesPage() {
                   )}
                 </tr>
               ))}
-              {types.length === 0 && <tr><td colSpan={6} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Belum ada tipe invoice</td></tr>}
+              {types.length === 0 && <tr><td colSpan={7} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Belum ada tipe invoice</td></tr>}
             </tbody>
           </table>
         )}
+        <TablePaginationBottom
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.handlePageChange}
+        />
       </div>
       {(adding || !!editing) && (
         <Modal title={editing ? "Edit Tipe Invoice" : "Tambah Tipe Invoice"} onClose={() => { setAdding(false); setEditing(null); }}>
@@ -510,6 +531,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
                 <table className="data-table">
                   <thead>
                     <tr>
+                      <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                       <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSortRecent("invoice_no")}>No Invoice <SortIcon sortConfig={sortConfigRecent} columnKey="invoice_no" /></th>
                       <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSortRecent("customer_name")}>Customer <SortIcon sortConfig={sortConfigRecent} columnKey="customer_name" /></th>
                       <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSortRecent("grand_total")}>Total <SortIcon sortConfig={sortConfigRecent} columnKey="grand_total" /></th>
@@ -518,8 +540,13 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedRecentInvoices.map(inv => (
+                    {sortedRecentInvoices.map((inv, idx) => (
                       <tr key={inv.id} style={{ cursor: "pointer" }} onClick={() => onNavigate("invoice-list")}>
+                        <td style={{ textAlign: "center" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                            {idx + 1}
+                          </span>
+                        </td>
                         <td><span style={{ fontFamily: "monospace", fontSize: 11, color: "#38bdf8", fontWeight: 600 }}>{inv.invoice_no}</span></td>
                         <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{inv.customer_name}</td>
                         <td style={{ fontWeight: 700, color: "var(--text-primary)" }}>{fmtRp(inv.grand_total)}</td>
@@ -720,7 +747,7 @@ function KnowledgePage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("id")}># <SortIcon sortConfig={sortConfig} columnKey="id" /></th>
+                  <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("keywords")}>Keywords <SortIcon sortConfig={sortConfig} columnKey="keywords" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("jawaban_utama")}>Jawaban Utama <SortIcon sortConfig={sortConfig} columnKey="jawaban_utama" /></th>
                   <th>Pilihan</th>
@@ -729,9 +756,13 @@ function KnowledgePage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedFiltered.map(k => (
+                {sortedFiltered.map((k, idx) => (
                   <tr key={k.id}>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{k.id}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                        {idx + 1}
+                      </span>
+                    </td>
                     <td><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{k.keywords.split(",").map(kw => <span key={kw} className="badge badge-form" style={{ fontSize: 10 }}>{kw.trim()}</span>)}</div></td>
                     <td style={{ maxWidth: 300 }}><p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{k.jawaban_utama}</p></td>
                     <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{k.pilihan_jawaban?.length ?? 0} opsi</td>
@@ -1037,6 +1068,7 @@ function WorkshopsPage() {
     return matchesSearch && matchesStatus;
   });
   const { sortedItems: sortedWorkshops, handleSort, sortConfig } = useSort(filteredWorkshops);
+  const pagination = usePagination(sortedWorkshops);
 
   return (
     <div className="animate-in">
@@ -1110,12 +1142,19 @@ function WorkshopsPage() {
         <WorkshopCalendar workshops={filteredWorkshops} onAddWorkshop={openAdd} onEditWorkshop={openEdit} />
       ) : (
       <div className="card" style={{ overflow: "hidden" }}>
+        <TablePaginationTop
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.handlePageSizeChange}
+        />
         {loading ? <div style={{ padding: 20 }}>{[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 52, marginBottom: 8 }} />)}</div> : (
           <div className="table-responsive">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("id")}># <SortIcon sortConfig={sortConfig} columnKey="id" /></th>
+                  <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("nama_workshop")}>Nama Workshop <SortIcon sortConfig={sortConfig} columnKey="nama_workshop" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("tanggal")}>Tanggal <SortIcon sortConfig={sortConfig} columnKey="tanggal" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("harga_normal")}>Harga Normal <SortIcon sortConfig={sortConfig} columnKey="harga_normal" /></th>
@@ -1127,9 +1166,13 @@ function WorkshopsPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedWorkshops.map(w => (
+                {pagination.paginatedItems.map((w, idx) => (
                   <tr key={w.id}>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{w.id}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                        {pagination.startIndex + idx}
+                      </span>
+                    </td>
                     <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{w.nama_workshop}</td>
                     <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDate(w.tanggal)}</td>
                     <td>{w.harga_normal ? <span style={{ fontWeight: 600 }}>{w.harga_normal}</span> : "—"}</td>
@@ -1147,11 +1190,17 @@ function WorkshopsPage() {
                     )}
                   </tr>
                 ))}
-                {workshops.length === 0 && <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Belum ada workshop</td></tr>}
+              {workshops.length === 0 && <tr><td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Belum ada workshop</td></tr>}
               </tbody>
             </table>
           </div>
         )}
+        <TablePaginationBottom
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.handlePageChange}
+        />
       </div>
       )}
       {(adding || !!editing) && (
@@ -1267,7 +1316,7 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("id")}># <SortIcon sortConfig={sortConfig} columnKey="id" /></th>
+                  <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("nama")}>Nama <SortIcon sortConfig={sortConfig} columnKey="nama" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("produk")}>Produk <SortIcon sortConfig={sortConfig} columnKey="produk" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("no_hp")}>No HP <SortIcon sortConfig={sortConfig} columnKey="no_hp" /></th>
@@ -1277,9 +1326,13 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
                 </tr>
               </thead>
               <tbody>
-                {sortedPesanan.map(p => (
+                {sortedPesanan.map((p, idx) => (
                   <tr key={p.id}>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{p.id}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                        {idx + 1}
+                      </span>
+                    </td>
                     <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{p.nama}</td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 13 }}>{p.produk}</td>
                     <td style={{ fontSize: 12, fontFamily: "monospace" }}>{p.no_hp}</td>
@@ -1431,7 +1484,7 @@ function RiwayatPesananPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("id")}># <SortIcon sortConfig={sortConfig} columnKey="id" /></th>
+                  <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("nama")}>Nama <SortIcon sortConfig={sortConfig} columnKey="nama" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("produk")}>Produk <SortIcon sortConfig={sortConfig} columnKey="produk" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("no_hp")}>No HP <SortIcon sortConfig={sortConfig} columnKey="no_hp" /></th>
@@ -1442,9 +1495,13 @@ function RiwayatPesananPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedRiwayat.map(p => (
+                {sortedRiwayat.map((p, idx) => (
                   <tr key={p.id}>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{p.id}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                        {idx + 1}
+                      </span>
+                    </td>
                     <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{p.nama}</td>
                     <td style={{ color: "var(--text-secondary)", fontSize: 13 }}>{p.produk}</td>
                     <td style={{ fontSize: 12, fontFamily: "monospace" }}>{p.no_hp}</td>
@@ -1647,7 +1704,7 @@ function AccessPage() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("id")}># <SortIcon sortConfig={sortConfig} columnKey="id" /></th>
+                  <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("username")}>Username <SortIcon sortConfig={sortConfig} columnKey="username" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("role")}>Role <SortIcon sortConfig={sortConfig} columnKey="role" /></th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("created_at")}>Dibuat <SortIcon sortConfig={sortConfig} columnKey="created_at" /></th>
@@ -1655,9 +1712,13 @@ function AccessPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedUsers.map(u => (
+                {sortedUsers.map((u, idx) => (
                   <tr key={u.id}>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{u.id}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                        {idx + 1}
+                      </span>
+                    </td>
                     <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{u.username}</td>
                     <td><span className={`badge ${u.role === "superadmin" ? "badge-ai" : "badge-form"}`}>{u.role === "superadmin" ? "⭐ Superadmin" : "👤 Admin"}</span></td>
                     <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{fmtDate(u.created_at)}</td>

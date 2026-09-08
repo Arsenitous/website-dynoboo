@@ -1,7 +1,8 @@
 "use client";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import type { FinancialCategory, FinancialTransaction } from "@/lib/supabase";
-import { Icons, Modal, Field, useToast, SortIcon, fmtRp } from "./ui";
+import { Icons, Modal, Field, useToast, SortIcon, fmtRp, TablePaginationTop, TablePaginationBottom } from "./ui";
+import { usePagination } from "@/lib/usePagination";
 import { useSort } from "@/lib/useSort";
 import { useAccess } from "./AccessContext";
 
@@ -175,6 +176,8 @@ export default function FinancialPage() {
   }, [transactions, activeTab, filterKat, filterTahun, filterBulan, search]);
 
   const { sortedItems, handleSort, sortConfig } = useSort(filtered);
+
+  const pagination = usePagination(sortedItems);
 
   // Unique years for filter
   const years = useMemo(() => {
@@ -392,15 +395,23 @@ export default function FinancialPage() {
 
       {/* ── Table ── */}
       <div className="card" style={{ overflow: "hidden" }}>
+        <TablePaginationTop
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.handlePageSizeChange}
+        />
         {loading ? (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 44 }} />)}
           </div>
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
+          <>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
                   <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                   <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("tanggal")}>
                     Tanggal <SortIcon sortConfig={sortConfig} columnKey="tanggal" />
@@ -417,11 +428,11 @@ export default function FinancialPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedItems.map((tx, idx) => (
+                {pagination.paginatedItems.map((tx, idx) => (
                   <tr key={tx.id}>
                     <td style={{ textAlign: "center", width: 44 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
-                        {idx + 1}
+                        {pagination.startIndex + idx}
                       </span>
                     </td>
                     <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{fmtDate(tx.tanggal)}</td>
@@ -458,7 +469,7 @@ export default function FinancialPage() {
                     )}
                   </tr>
                 ))}
-                {sortedItems.length === 0 && (
+                {pagination.totalItems === 0 && (
                   <tr>
                     <td colSpan={7} style={{ textAlign: "center", padding: "48px 20px", color: "var(--text-muted)" }}>
                       <div style={{ fontSize: 40, marginBottom: 10 }}>{activeTab === "PEMASUKAN" ? "💰" : "💸"}</div>
@@ -469,16 +480,18 @@ export default function FinancialPage() {
                 )}
               </tbody>
             </table>
-          </div>
+            </div>
+            <TablePaginationBottom
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              onPageChange={pagination.handlePageChange}
+            />
+          </>
         )}
       </div>
 
-      {/* Row count */}
-      {!loading && sortedItems.length > 0 && (
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, paddingLeft: 4 }}>
-          Menampilkan {sortedItems.length} dari {filtered.length} transaksi
-        </p>
-      )}
+
 
       {/* ═══════════════════════════════════════════════════════ */}
       {/* ── Modal: Add / Edit Transaksi ── */}

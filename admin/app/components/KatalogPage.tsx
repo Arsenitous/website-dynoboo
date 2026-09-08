@@ -1,7 +1,8 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import type { Item, ItemType } from "@/lib/supabase";
-import { Icons, Modal, Field, CustomSelect, fmtRp, useToast, SortIcon } from "./ui";
+import { Icons, Modal, Field, CustomSelect, fmtRp, useToast, SortIcon, TablePaginationTop, TablePaginationBottom } from "./ui";
+import { usePagination } from "@/lib/usePagination";
 import { useSort } from "@/lib/useSort";
 import { useAccess } from "./AccessContext";
 
@@ -144,6 +145,8 @@ export default function KatalogPage() {
 
   const { sortedItems: sortedFiltered, handleSort, sortConfig } = useSort(filtered);
 
+  const pagination = usePagination(sortedFiltered);
+
   const saveQuickStock = async () => {
     if (!addStockTarget) return;
     setSavingStock(true);
@@ -233,6 +236,13 @@ export default function KatalogPage() {
       </div>
 
       <div className="card" style={{ overflow: "hidden" }}>
+        <TablePaginationTop
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.handlePageSizeChange}
+        />
         {loading ? (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 56 }} />)}
@@ -240,7 +250,7 @@ export default function KatalogPage() {
         ) : (
           <table className="data-table">
             <thead><tr>
-              <th style={{ width: 44, cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("id")}># <SortIcon sortConfig={sortConfig} columnKey="id" /></th>
+              <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("nama")}>Nama Item <SortIcon sortConfig={sortConfig} columnKey="nama" /></th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("item_type_id")}>Tipe <SortIcon sortConfig={sortConfig} columnKey="item_type_id" /></th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("harga_normal")}>Harga Normal <SortIcon sortConfig={sortConfig} columnKey="harga_normal" /></th>
@@ -249,9 +259,13 @@ export default function KatalogPage() {
               {(canUpdate || canDelete) && <th style={{ width: 90 }}>Aksi</th>}
             </tr></thead>
             <tbody>
-              {sortedFiltered.map(item => (
+              {pagination.paginatedItems.map((item, idx) => (
                 <tr key={item.id}>
-                  <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{item.id}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                      {pagination.startIndex + idx}
+                    </span>
+                  </td>
                   <td>
                     <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>{item.nama}</p>
                     {item.deskripsi && <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{item.deskripsi}</p>}
@@ -280,6 +294,12 @@ export default function KatalogPage() {
             </tbody>
           </table>
         )}
+        <TablePaginationBottom
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.handlePageChange}
+        />
       </div>
 
       {(adding || !!editing) && (

@@ -1,7 +1,8 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import type { Loyalty, Invoice } from "@/lib/supabase";
-import { Icons, Modal, Field, useToast, SortIcon } from "./ui";
+import { Icons, Modal, Field, useToast, SortIcon, TablePaginationTop, TablePaginationBottom } from "./ui";
+import { usePagination } from "@/lib/usePagination";
 import { useSort } from "@/lib/useSort";
 import { useAccess } from "./AccessContext";
 
@@ -134,6 +135,8 @@ export default function LoyaltyPage({ onNavigate }: { onNavigate: (page: any, da
 
   const { sortedItems: sortedFiltered, handleSort, sortConfig } = useSort(filtered);
 
+  const pagination = usePagination(sortedFiltered);
+
   return (
     <>
       <div className="animate-in">
@@ -208,6 +211,13 @@ export default function LoyaltyPage({ onNavigate }: { onNavigate: (page: any, da
 
         {/* Table */}
         <div className="card" style={{ overflow: "hidden" }}>
+          <TablePaginationTop
+            totalItems={pagination.totalItems}
+            startIndex={pagination.startIndex}
+            endIndex={pagination.endIndex}
+            pageSize={pagination.pageSize}
+            onPageSizeChange={pagination.handlePageSizeChange}
+          />
           {loading ? (
             <div style={{ padding: 24 }}>
               {[...Array(4)].map((_, i) => (
@@ -229,7 +239,7 @@ export default function LoyaltyPage({ onNavigate }: { onNavigate: (page: any, da
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th style={{ width: 50, cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("id")}>ID <SortIcon sortConfig={sortConfig} columnKey="id" /></th>
+                    <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
                     <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("nama")}>Nama <SortIcon sortConfig={sortConfig} columnKey="nama" /></th>
                     <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("no_hp")}>No HP <SortIcon sortConfig={sortConfig} columnKey="no_hp" /></th>
                     <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("email")}>Email <SortIcon sortConfig={sortConfig} columnKey="email" /></th>
@@ -239,13 +249,13 @@ export default function LoyaltyPage({ onNavigate }: { onNavigate: (page: any, da
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedFiltered.map(c => {
+                  {pagination.paginatedItems.map((c, idx) => {
                     const txCount = c.txCount;
                     return (
                       <tr key={c.id}>
-                        <td>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", fontFamily: "monospace" }}>
-                            #{c.id}
+                        <td style={{ textAlign: "center" }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                            {pagination.startIndex + idx}
                           </span>
                         </td>
                         <td>
@@ -322,6 +332,12 @@ export default function LoyaltyPage({ onNavigate }: { onNavigate: (page: any, da
               </table>
             </div>
           )}
+          <TablePaginationBottom
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            onPageChange={pagination.handlePageChange}
+          />
         </div>
 
         {/* Modal Form */}

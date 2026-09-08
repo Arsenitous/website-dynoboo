@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useEffect, useState, createContext, useContext } from "react";
 import { createPortal } from "react-dom";
+import { PAGE_SIZE_OPTIONS, PageSize } from "@/lib/usePagination";
 
 // ─── Toast System ─────────────────────────────────────────────────────────────
 type ToastType = "ok" | "err";
@@ -227,3 +228,116 @@ export function InvoiceStatusBadge({ status }: { status: string }) {
 export function fmtRp(n: number | string) {
   return "Rp " + Number(n).toLocaleString("id-ID");
 }
+
+
+// ─── Table Pagination ─────────────────────────────────────────────────────────
+
+type PaginationProps = {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  startIndex: number;
+  endIndex: number;
+  pageSize: PageSize;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: PageSize) => void;
+};
+
+/** Top bar: "Menampilkan X–Y dari Z" + page-size buttons */
+export function TablePaginationTop({
+  totalItems, startIndex, endIndex, pageSize, onPageSizeChange,
+}: Pick<PaginationProps, "totalItems"|"startIndex"|"endIndex"|"pageSize"|"onPageSizeChange">) {
+  if (totalItems === 0) return null;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "10px 16px", borderBottom: "1px solid var(--border)",
+    }}>
+      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+        Menampilkan{" "}
+        <strong style={{ color: "var(--text-secondary)" }}>{startIndex}–{endIndex}</strong>{" "}
+        dari{" "}
+        <strong style={{ color: "var(--text-secondary)" }}>{totalItems}</strong> data
+      </span>
+      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>  Tampilkan</span>
+      <div style={{ display: "flex", gap: 3 }}>
+        {PAGE_SIZE_OPTIONS.map(size => (
+          <button key={size} onClick={() => onPageSizeChange(size)} style={{
+            padding: "3px 8px", fontSize: 11, fontWeight: 600, borderRadius: 6,
+            border: `1px solid ${pageSize === size ? "var(--accent)" : "var(--border)"}`,
+            background: pageSize === size ? "var(--accent)" : "transparent",
+            color: pageSize === size ? "#fff" : "var(--text-muted)",
+            cursor: "pointer", transition: "all 0.15s ease",
+          }}>{size}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Bottom bar: Prev · 1 2 3 · Next */
+export function TablePaginationBottom({
+  currentPage, totalPages, totalItems, onPageChange,
+}: Pick<PaginationProps, "currentPage"|"totalPages"|"totalItems"|"onPageChange">) {
+  const getPageNumbers = () => {
+    const pages: (number | "...")[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > 3) pages.push("...");
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+      if (currentPage < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  if (totalItems === 0 || totalPages <= 1) return null;
+
+  const btnBase: React.CSSProperties = {
+    padding: "4px 10px", fontSize: 12, fontWeight: 600, borderRadius: 6,
+    border: "1px solid var(--border)", background: "transparent",
+    cursor: "pointer", transition: "all 0.15s ease",
+  };
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", justifyContent: "center",
+      gap: 4, padding: "10px 16px", borderTop: "1px solid var(--border)",
+    }}>
+      <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}
+        style={{ ...btnBase, color: currentPage === 1 ? "var(--text-muted)" : "var(--text-secondary)", opacity: currentPage === 1 ? 0.4 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}>
+        ‹ Prev
+      </button>
+      {getPageNumbers().map((page, idx) =>
+        page === "..." ? (
+          <span key={`e-${idx}`} style={{ padding: "4px 4px", fontSize: 12, color: "var(--text-muted)" }}>…</span>
+        ) : (
+          <button key={page} onClick={() => onPageChange(page as number)} style={{
+            ...btnBase, minWidth: 32,
+            border: `1px solid ${currentPage === page ? "var(--accent)" : "var(--border)"}`,
+            background: currentPage === page ? "var(--accent)" : "transparent",
+            color: currentPage === page ? "#fff" : "var(--text-secondary)",
+          }}>{page}</button>
+        )
+      )}
+      <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}
+        style={{ ...btnBase, color: currentPage === totalPages ? "var(--text-muted)" : "var(--text-secondary)", opacity: currentPage === totalPages ? 0.4 : 1, cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}>
+        Next ›
+      </button>
+    </div>
+  );
+}
+
+/** Combined (legacy kept for backward compat — not used after split) */
+export function TablePagination(props: PaginationProps) {
+  if (props.totalItems === 0) return null;
+  return (
+    <>
+      <TablePaginationTop {...props} />
+      <TablePaginationBottom {...props} />
+    </>
+  );
+}
+

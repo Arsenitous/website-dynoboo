@@ -1,7 +1,8 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import type { Invoice, InvoiceType } from "@/lib/supabase";
-import { Icons, CustomSelect, InvoiceStatusBadge, fmtRp, Modal, Field, useToast, SortIcon } from "./ui";
+import { Icons, CustomSelect, InvoiceStatusBadge, fmtRp, Modal, Field, useToast, SortIcon, TablePaginationTop, TablePaginationBottom } from "./ui";
+import { usePagination } from "@/lib/usePagination";
 import { useSort } from "@/lib/useSort";
 import { useAccess } from "./AccessContext";
 
@@ -54,6 +55,14 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
   // Modal Pembatalan State
   const [targetCancelInvoice, setTargetCancelInvoice] = useState<Invoice | null>(null);
   const [cancelling, setCancelling] = useState(false);
+
+  // Modal Filter State
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  // Draft filter state (applied only on "Terapkan")
+  const [draftMonth, setDraftMonth]   = useState(initialFilters?.filterMonth || "");
+  const [draftYear, setDraftYear]     = useState(initialFilters?.filterYear  || "");
+  const [draftStatus, setDraftStatus] = useState("");
+  const [draftType, setDraftType]     = useState("");
 
   // Modal Laporan State
   const [showReportModal, setShowReportModal] = useState(false);
@@ -109,6 +118,8 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
   });
 
   const { sortedItems: sortedFiltered, handleSort, sortConfig } = useSort(filtered);
+
+  const pagination = usePagination(sortedFiltered);
 
   const countActive = invoices.filter(i => i.status_pembayaran !== "CANCELLED").length;
   const totalRevenue = invoices.filter(i => i.status_pembayaran === "PAID").reduce((s, i) => s + Number(i.grand_total), 0);
@@ -330,24 +341,110 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
         ))}
       </div>
 
-      {/* Filters */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ position: "relative", flex: 1, minWidth: 200 }}>
-          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", display: "flex", alignItems: "center" }}><Icons.Search /></span>
-          <input className="input" style={{ paddingLeft: 36 }} placeholder="Cari no invoice atau nama customer..." value={search} onChange={e => setSearch(e.target.value)} />
+      {/* ── Search Bar + Filter Button ── */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+        {/* Search */}
+        <div style={{ position: "relative", flex: 1 }}>
+          <span style={{
+            position: "absolute", left: 11, top: 0, bottom: 0,
+            display: "flex", alignItems: "center", pointerEvents: "none",
+            color: "var(--text-muted)",
+          }}><Icons.Search /></span>
+          <input
+            className="input"
+            style={{ paddingLeft: 34 }}
+            placeholder="Cari no invoice atau nama customer..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
-        <div style={{ width: 140 }}><CustomSelect value={filterMonth} onChange={setFilterMonth} options={[{value: "", label: "Bulan (Semua)"}, ...MONTH_OPTIONS]} /></div>
-        <div style={{ width: 120 }}><CustomSelect value={filterYear} onChange={setFilterYear} options={[{value: "", label: "Tahun (Semua)"}, ...YEAR_OPTIONS]} /></div>
-        <div style={{ width: 220 }}><CustomSelect value={filterStatus} onChange={setFilterStatus} options={STATUS_OPTIONS} /></div>
-        <div style={{ width: 180 }}><CustomSelect value={filterType} onChange={setFilterType} options={typeOptions} /></div>
+        {/* Filter button */}
+        {(() => {
+          const activeCount = [filterMonth, filterYear, filterType, filterStatus && filterStatus !== "" ? filterStatus : ""].filter(Boolean).length;
+          return (
+            <button
+              onClick={() => {
+                setDraftMonth(filterMonth);
+                setDraftYear(filterYear);
+                setDraftStatus(filterStatus);
+                setDraftType(filterType);
+                setShowFilterModal(true);
+              }}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                height: 38, padding: "0 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                cursor: "pointer", flexShrink: 0, transition: "all 0.2s",
+                border: activeCount > 0 ? "1.5px solid #38bdf8" : "1px solid var(--border-2)",
+                background: activeCount > 0 ? "rgba(56,189,248,0.12)" : "var(--bg-card-2)",
+                color: activeCount > 0 ? "#38bdf8" : "var(--text-primary)",
+                boxShadow: activeCount > 0 ? "0 0 12px rgba(56,189,248,0.2)" : "none",
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+              </svg>
+              Filter
+              {activeCount > 0 && (
+                <span style={{
+                  background: "#38bdf8", color: "#0c1a2e",
+                  borderRadius: 20, fontSize: 10, fontWeight: 800,
+                  padding: "1px 6px", marginLeft: 2,
+                }}>{activeCount}</span>
+              )}
+            </button>
+          );
+        })()}
       </div>
 
+      {/* ── Active Filter Chips ── */}
+      {(filterMonth || filterYear || filterStatus || filterType) && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, marginRight: 2 }}>Filter aktif:</span>
+          {filterMonth && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "3px 10px 3px 8px", borderRadius: 20, background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.3)", color: "#38bdf8" }}>
+              🗓 {MONTH_OPTIONS.find(m => m.value === filterMonth)?.label}
+              <button onClick={() => setFilterMonth("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#38bdf8", fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+            </span>
+          )}
+          {filterYear && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "3px 10px 3px 8px", borderRadius: 20, background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.3)", color: "#38bdf8" }}>
+              📅 {filterYear}
+              <button onClick={() => setFilterYear("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#38bdf8", fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+            </span>
+          )}
+          {filterStatus && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "3px 10px 3px 8px", borderRadius: 20, background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.3)", color: "#38bdf8" }}>
+              🔖 {STATUS_OPTIONS.find(s => s.value === filterStatus)?.label}
+              <button onClick={() => setFilterStatus("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#38bdf8", fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+            </span>
+          )}
+          {filterType && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "3px 10px 3px 8px", borderRadius: 20, background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.3)", color: "#38bdf8" }}>
+              📋 {typeOptions.find(t => t.value === filterType)?.label}
+              <button onClick={() => setFilterType("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#38bdf8", fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+            </span>
+          )}
+          <button
+            onClick={() => { setFilterMonth(""); setFilterYear(""); setFilterStatus(""); setFilterType(""); }}
+            style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 20, padding: "3px 10px", cursor: "pointer" }}
+          >✕ Reset Semua</button>
+        </div>
+      )}
+
       <div className="card" style={{ overflow: "hidden" }}>
+        <TablePaginationTop
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.handlePageSizeChange}
+        />
         {loading ? (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>{[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 52 }} />)}</div>
         ) : (
           <table className="data-table">
             <thead><tr>
+              <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("invoice_no")}>No Invoice <SortIcon sortConfig={sortConfig} columnKey="invoice_no" /></th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("invoice_date")}>Tanggal <SortIcon sortConfig={sortConfig} columnKey="invoice_date" /></th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("customer_name")}>Customer <SortIcon sortConfig={sortConfig} columnKey="customer_name" /></th>
@@ -357,8 +454,13 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
               <th style={{ width: 120 }}>Aksi</th>
             </tr></thead>
             <tbody>
-              {sortedFiltered.map(inv => (
+              {pagination.paginatedItems.map((inv, idx) => (
                 <tr key={inv.id} style={{ cursor: "pointer" }} onClick={() => onViewInvoice(inv.id)}>
+                  <td style={{ textAlign: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                      {pagination.startIndex + idx}
+                    </span>
+                  </td>
                   <td><span style={{ fontFamily: "monospace", fontSize: 12, color: "#a78bfa", fontWeight: 600 }}>{inv.invoice_no}</span></td>
                   <td style={{ fontSize: 12, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{fmt(inv.invoice_date)}</td>
                   <td>
@@ -410,6 +512,12 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
             </tbody>
           </table>
         )}
+        <TablePaginationBottom
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.handlePageChange}
+        />
       </div>
 
       {/* ── Modal Konfirmasi Pembatalan Invoice ── */}
@@ -553,6 +661,96 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
           </div>
         </Modal>
       )}
+
+      {/* ── Filter Modal ── */}
+      {showFilterModal && (
+        <Modal title="Filter Invoice" onClose={() => setShowFilterModal(false)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* Status */}
+            <Field label="Status Pembayaran">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {STATUS_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setDraftStatus(opt.value)}
+                    style={{
+                      padding: "9px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                      cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                      border: draftStatus === opt.value ? "1.5px solid #38bdf8" : "1px solid var(--border-2)",
+                      background: draftStatus === opt.value ? "rgba(56,189,248,0.12)" : "var(--bg-card-2)",
+                      color: draftStatus === opt.value ? "#38bdf8" : "var(--text-secondary)",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            {/* Periode */}
+            <Field label="Periode">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6, fontWeight: 600 }}>BULAN</p>
+                  <CustomSelect
+                    value={draftMonth}
+                    onChange={setDraftMonth}
+                    options={[{ value: "", label: "Semua Bulan" }, ...MONTH_OPTIONS]}
+                  />
+                </div>
+                <div>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6, fontWeight: 600 }}>TAHUN</p>
+                  <CustomSelect
+                    value={draftYear}
+                    onChange={setDraftYear}
+                    options={[{ value: "", label: "Semua Tahun" }, ...YEAR_OPTIONS]}
+                  />
+                </div>
+              </div>
+            </Field>
+
+            {/* Tipe Invoice */}
+            <Field label="Tipe Invoice">
+              <CustomSelect
+                value={draftType}
+                onChange={setDraftType}
+                options={typeOptions}
+              />
+            </Field>
+
+            {/* Buttons */}
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, justifyContent: "center", padding: "11px 0", fontWeight: 700 }}
+                onClick={() => {
+                  setFilterMonth(draftMonth);
+                  setFilterYear(draftYear);
+                  setFilterStatus(draftStatus);
+                  setFilterType(draftType);
+                  setShowFilterModal(false);
+                }}
+              >
+                ✓ Terapkan Filter
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: "11px 16px", fontWeight: 600 }}
+                onClick={() => {
+                  setDraftMonth(""); setDraftYear(""); setDraftStatus(""); setDraftType("");
+                  setFilterMonth(""); setFilterYear(""); setFilterStatus(""); setFilterType("");
+                  setShowFilterModal(false);
+                }}
+              >
+                Reset
+              </button>
+            </div>
+
+          </div>
+        </Modal>
+      )}
+
     </div>
   );
 }

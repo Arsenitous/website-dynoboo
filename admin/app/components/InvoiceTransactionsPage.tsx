@@ -1,7 +1,8 @@
 "use client";
 import { useState, useCallback, useEffect, useMemo } from "react";
 import type { PaymentWithInvoice, FinancialCategory } from "@/lib/supabase";
-import { Icons, Modal, Field, useToast, SortIcon, fmtRp } from "./ui";
+import { Icons, Modal, Field, useToast, SortIcon, fmtRp, TablePaginationTop, TablePaginationBottom } from "./ui";
+import { usePagination } from "@/lib/usePagination";
 import { useSort } from "@/lib/useSort";
 import { useAccess } from "./AccessContext";
 
@@ -263,6 +264,7 @@ export default function InvoiceTransactionsPage() {
   const [loading, setLoading]     = useState(true);
 
   // Filters
+  const [search,       setSearch]       = useState("");
   const [filterTipe,   setFilterTipe]   = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterTahun,  setFilterTahun]  = useState("");
@@ -295,6 +297,12 @@ export default function InvoiceTransactionsPage() {
 
   const filtered = useMemo(() => {
     return payments.filter(p => {
+      if (search) {
+        const q = search.toLowerCase();
+        const matchInvoice = p.invoice?.invoice_no?.toLowerCase().includes(q);
+        const matchCustomer = p.invoice?.customer_name?.toLowerCase().includes(q);
+        if (!matchInvoice && !matchCustomer) return false;
+      }
       if (filterTipe   && p.tipe !== filterTipe) return false;
       if (filterStatus === "IMPORTED" && !p.sudah_diimport) return false;
       if (filterStatus === "PENDING"  &&  p.sudah_diimport) return false;
@@ -302,9 +310,11 @@ export default function InvoiceTransactionsPage() {
       if (filterBulan  && p.tanggal_bayar?.slice(5, 7) !== filterBulan) return false;
       return true;
     });
-  }, [payments, filterTipe, filterStatus, filterTahun, filterBulan]);
+  }, [payments, search, filterTipe, filterStatus, filterTahun, filterBulan]);
 
   const { sortedItems, handleSort, sortConfig } = useSort(filtered);
+
+  const pagination = usePagination(sortedItems);
 
   // Summary
   const totalPending  = payments.filter(p => !p.sudah_diimport).reduce((s, p) => s + Number(p.jumlah), 0);
@@ -321,7 +331,7 @@ export default function InvoiceTransactionsPage() {
     setDeleting(false);
   };
 
-  const hasFilter = filterTipe || filterStatus || filterTahun || filterBulan;
+  const hasFilter = !!(search || filterTipe || filterStatus || filterTahun || filterBulan);
 
   return (
     <div className="animate-in">
@@ -364,13 +374,23 @@ export default function InvoiceTransactionsPage() {
         </div>
       </div>
 
-      {/* Filters — compact single row */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 8, marginBottom: 16,
-        background: "var(--bg-card)", border: "1px solid var(--border)",
-        borderRadius: 12, padding: "8px 12px", flexWrap: "nowrap", overflowX: "auto",
-      }}>
-        <select className="input" style={{ height: 34, fontSize: 12, borderRadius: 7, minWidth: 110, flexShrink: 0 }}
+      {/* Filters — single row */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+        {/* Search */}
+        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none", display: "flex" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input
+            className="input"
+            style={{ paddingLeft: 36, width: "100%", height: 38 }}
+            placeholder="Cari no invoice atau nama customer..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+
+        <select className="input" style={{ height: 38, fontSize: 12, width: 140, flexShrink: 0 }}
           value={filterTipe} onChange={e => setFilterTipe(e.target.value)}>
           <option value="">Tipe Bayar</option>
           <option value="DP">DP</option>
@@ -378,30 +398,30 @@ export default function InvoiceTransactionsPage() {
           <option value="Full">Full</option>
         </select>
 
-        <div style={{ width: 1, height: 22, background: "var(--border)", flexShrink: 0 }} />
-
-        <select className="input" style={{ height: 34, fontSize: 12, borderRadius: 7, minWidth: 120, flexShrink: 0 }}
+        <select className="input" style={{ height: 38, fontSize: 12, width: 130, flexShrink: 0 }}
           value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">Semua Status</option>
           <option value="PENDING">⏳ Pending</option>
           <option value="IMPORTED">✓ Imported</option>
         </select>
 
-        <select className="input" style={{ height: 34, fontSize: 12, borderRadius: 7, minWidth: 88, flexShrink: 0 }}
+        <select className="input" style={{ height: 38, fontSize: 12, width: 100, flexShrink: 0 }}
           value={filterTahun} onChange={e => setFilterTahun(e.target.value)}>
           <option value="">Tahun</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
 
-        <select className="input" style={{ height: 34, fontSize: 12, borderRadius: 7, minWidth: 100, flexShrink: 0 }}
+        <select className="input" style={{ height: 38, fontSize: 12, width: 120, flexShrink: 0 }}
           value={filterBulan} onChange={e => setFilterBulan(e.target.value)}>
           <option value="">Bulan</option>
           {MONTHS.map((m, i) => <option key={m} value={m}>{MONTH_NAMES[i]}</option>)}
         </select>
 
         {hasFilter && (
-          <button onClick={() => { setFilterTipe(""); setFilterStatus(""); setFilterTahun(""); setFilterBulan(""); }}
-            style={{ display: "flex", alignItems: "center", gap: 4, height: 34, padding: "0 10px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}>
+          <button
+            onClick={() => { setSearch(""); setFilterTipe(""); setFilterStatus(""); setFilterTahun(""); setFilterBulan(""); }}
+            style={{ height: 38, padding: "0 14px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+          >
             ✕ Reset
           </button>
         )}
@@ -409,11 +429,19 @@ export default function InvoiceTransactionsPage() {
 
       {/* Table */}
       <div className="card" style={{ overflow: "hidden" }}>
+        <TablePaginationTop
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.handlePageSizeChange}
+        />
         {loading ? (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 48 }} />)}
           </div>
         ) : (
+          <>
           <div className="table-responsive">
             <table className="data-table">
               <thead>
@@ -436,11 +464,11 @@ export default function InvoiceTransactionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedItems.map((p, idx) => (
+                {pagination.paginatedItems.map((p, idx) => (
                   <tr key={p.id}>
                     <td style={{ textAlign: "center" }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
-                        {idx + 1}
+                        {pagination.startIndex + idx}
                       </span>
                     </td>
                     <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{fmtDate(p.tanggal_bayar)}</td>
@@ -484,7 +512,7 @@ export default function InvoiceTransactionsPage() {
                     </td>
                   </tr>
                 ))}
-                {sortedItems.length === 0 && (
+                {pagination.totalItems === 0 && (
                   <tr>
                     <td colSpan={9} style={{ textAlign: "center", padding: "48px 20px", color: "var(--text-muted)" }}>
                       <div style={{ fontSize: 40, marginBottom: 10 }}>📋</div>
@@ -496,14 +524,17 @@ export default function InvoiceTransactionsPage() {
               </tbody>
             </table>
           </div>
+          <TablePaginationBottom
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            onPageChange={pagination.handlePageChange}
+          />
+          </>
         )}
       </div>
 
-      {!loading && sortedItems.length > 0 && (
-        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, paddingLeft: 4 }}>
-          Menampilkan {sortedItems.length} dari {payments.length} transaksi
-        </p>
-      )}
+
 
       {/* Import modal */}
       {importing && (

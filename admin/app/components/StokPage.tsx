@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
-import { Icons, Modal, Field, fmtRp, SortIcon } from "./ui";
+import { Icons, Modal, Field, fmtRp, SortIcon, TablePaginationTop, TablePaginationBottom } from "./ui";
+import { usePagination } from "@/lib/usePagination";
 import { useSort } from "@/lib/useSort";
 import { useAccess } from "./AccessContext";
 
@@ -153,6 +154,8 @@ export default function StokPage() {
 
   const { sortedItems: sortedFiltered, handleSort, sortConfig } = useSort(filtered);
 
+  const pagination = usePagination(sortedFiltered);
+
   const modalItem = addingFrom ?? editing?.item;
   const modalTitle = addingFrom ? `Inisialisasi Stok: ${addingFrom.nama}` : editing ? `Update Stok: ${editing.item?.nama}` : "";
 
@@ -288,6 +291,13 @@ export default function StokPage() {
       </div>
 
       <div className="card" style={{ overflow: "hidden" }}>
+        <TablePaginationTop
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          pageSize={pagination.pageSize}
+          onPageSizeChange={pagination.handlePageSizeChange}
+        />
         {loading ? (
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             {[1, 2, 3, 4].map(i => <div key={i} className="skeleton" style={{ height: 52 }} />)}
@@ -295,6 +305,7 @@ export default function StokPage() {
         ) : (
           <table className="data-table">
             <thead><tr>
+              <th style={{ width: 44, textAlign: "center", color: "var(--text-subtle)" }}>#</th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("item.nama")}>Item <SortIcon sortConfig={sortConfig} columnKey="item.nama" /></th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("item.item_type.nama")}>Tipe <SortIcon sortConfig={sortConfig} columnKey="item.item_type.nama" /></th>
               <th style={{ cursor: "pointer", userSelect: "none" }} onClick={() => handleSort("item.harga_normal")}>Harga <SortIcon sortConfig={sortConfig} columnKey="item.harga_normal" /></th>
@@ -304,8 +315,13 @@ export default function StokPage() {
               {(canUpdate || canDelete) && <th style={{ width: 140 }}>Aksi</th>}
             </tr></thead>
             <tbody>
-              {sortedFiltered.map(s => (
+              {pagination.paginatedItems.map((s, idx) => (
                 <tr key={s.id}>
+                  <td style={{ textAlign: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-subtle)", background: "var(--bg-card-2)", border: "1px solid var(--border)", borderRadius: 5, padding: "2px 7px" }}>
+                      {pagination.startIndex + idx}
+                    </span>
+                  </td>
                   <td>
                     <p style={{ fontWeight: 600, color: s.item?.is_active ? "var(--text-primary)" : "var(--text-muted)" }}>{s.item?.nama ?? `Item #${s.item_id}`}</p>
                     {!s.item?.is_active && <span style={{ fontSize: 10, color: "var(--text-muted)" }}>nonaktif</span>}
@@ -358,6 +374,12 @@ export default function StokPage() {
             </tbody>
           </table>
         )}
+        <TablePaginationBottom
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          onPageChange={pagination.handlePageChange}
+        />
       </div>
 
       {/* ─── SECTION 3: Workshop Ticket Sales ─── */}
