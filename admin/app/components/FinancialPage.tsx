@@ -5,6 +5,10 @@ import { Icons, Modal, Field, useToast, SortIcon, fmtRp, TablePaginationTop, Tab
 import { usePagination } from "@/lib/usePagination";
 import { useSort } from "@/lib/useSort";
 import { useAccess } from "./AccessContext";
+// Export libs — imported dynamically to avoid SSR issues
+async function getPdf() { const m = await import("jspdf"); return m.default ?? m; }
+async function getAutoTable() { const m = await import("jspdf-autotable"); return m.default ?? m; }
+async function getXlsxStyle() { return import("xlsx-js-style"); }
 
 // ─── Preset colour palette ────────────────────────────────────────────────────
 const COLOR_PALETTE = [
@@ -131,6 +135,17 @@ export default function FinancialPage() {
   const [savingCat, setSavingCat] = useState(false);
   const [deletingCat, setDeletingCat] = useState<FinancialCategory | null>(null);
   const [deletingCatId, setDeletingCatId] = useState(false);
+
+  // Export modal
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"pdf" | "excel">("pdf");
+  const [exportJenis, setExportJenis] = useState<"SEMUA" | "PEMASUKAN" | "PENGELUARAN">("SEMUA");
+  const [exportKatId, setExportKatId] = useState("");
+  const [exportDariTahun, setExportDariTahun] = useState("");
+  const [exportDariBulan, setExportDariBulan] = useState("");
+  const [exportSampaiTahun, setExportSampaiTahun] = useState("");
+  const [exportSampaiBulan, setExportSampaiBulan] = useState("");
 
   // ── Data Fetching ──
   const load = useCallback(async () => {
@@ -294,6 +309,253 @@ export default function FinancialPage() {
   const MONTHS = ["01","02","03","04","05","06","07","08","09","10","11","12"];
   const MONTH_NAMES = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
+  // ── Export Logic ──
+  const exportCategories = useMemo(() => {
+    if (exportJenis === "SEMUA") return categories;
+    return categories.filter(c => c.tipe === exportJenis);
+  }, [categories, exportJenis]);
+
+  const getExportData = () => {
+    return transactions
+      .filter(t => {
+        if (exportJenis !== "SEMUA" && t.tipe !== exportJenis) return false;
+        if (exportKatId && String(t.kategori_id) !== exportKatId) return false;
+        const [ty, tm] = (t.tanggal ?? "").split("-");
+        if (exportDariTahun && exportDariBulan) {
+          if (`${ty}-${tm}` < `${exportDariTahun}-${exportDariBulan}`) return false;
+        } else if (exportDariTahun && ty < exportDariTahun) return false;
+        if (exportSampaiTahun && exportSampaiBulan) {
+          if (`${ty}-${tm}` > `${exportSampaiTahun}-${exportSampaiBulan}`) return false;
+        } else if (exportSampaiTahun && ty > exportSampaiTahun) return false;
+        return true;
+      })
+      .sort((a, b) => (a.tanggal ?? "").localeCompare(b.tanggal ?? ""));
+  };
+
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const jsPDF = await getPdf();
+      const autoTable = await getAutoTable();
+      const data = getExportData();
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+
+      // Header
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, pageW, 32, "F");
+      doc.setTextColor(56, 189, 248);
+      doc.setFontSize(18); doc.setFont("helvetica", "bold");
+      doc.text("DynoBoo", 14, 14);
+      doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.setTextColor(148, 163, 184);
+      doc.text("Laporan Finansial — Riwayat Mutasi", 14, 22);
+      const now = new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+      doc.text(`Dicetak: ${now}`, pageW - 14, 22, { align: "right" });
+
+      // Period
+      const periodFrom = exportDariBulan && exportDariTahun ? `${MONTH_NAMES[MONTHS.indexOf(exportDariBulan)]} ${exportDariTahun}` : "Semua";
+      const periodTo = exportSampaiBulan && exportSampaiTahun ? `${MONTH_NAMES[MONTHS.indexOf(exportSampaiBulan)]} ${exportSampaiTahun}` : "Semua";
+      doc.setFontSize(8); doc.setTextColor(100, 116, 139);
+      doc.text(`Periode: ${periodFrom} — ${periodTo}  |  Jenis: ${exportJenis}`, 14, 29);
+
+      // Summary box
+      const totalPem = data.filter(t => t.tipe === "PEMASUKAN").reduce((s, t) => s + Number(t.nominal), 0);
+      const totalPen = data.filter(t => t.tipe === "PENGELUARAN").reduce((s, t) => s + Number(t.nominal), 0);
+      const saldo = totalPem - totalPen;
+      const boxY = 38;
+      doc.setFillColor(22, 33, 55); doc.roundedRect(10, boxY, pageW - 20, 22, 3, 3, "F");
+      doc.setFontSize(8); doc.setFont("helvetica", "bold");
+      doc.setTextColor(16, 185, 129); doc.text("TOTAL PEMASUKAN", 16, boxY + 7);
+      doc.setFontSize(11); doc.text(fmtRp(totalPem), 16, boxY + 15);
+      const midX = pageW / 2;
+      doc.setTextColor(239, 68, 68); doc.setFontSize(8); doc.text("TOTAL PENGELUARAN", midX - 20, boxY + 7);
+      doc.setFontSize(11); doc.text(fmtRp(totalPen), midX - 20, boxY + 15);
+      doc.setTextColor(saldo >= 0 ? 56 : 245, saldo >= 0 ? 189 : 158, saldo >= 0 ? 248 : 11);
+      doc.setFontSize(8); doc.text("SALDO BERSIH", pageW - 60, boxY + 7);
+      doc.setFontSize(11); doc.text(fmtRp(Math.abs(saldo)), pageW - 60, boxY + 15);
+
+      // Table — autoTable called as function (functional API)
+      let saldoBerjalan = 0;
+      const rows = data.map((t, i) => {
+        const nom = Number(t.nominal);
+        saldoBerjalan += t.tipe === "PEMASUKAN" ? nom : -nom;
+        return [
+          String(i + 1),
+          fmtDate(t.tanggal),
+          t.kategori?.nama ?? "—",
+          t.detail ?? "—",
+          t.tipe === "PEMASUKAN" ? fmtRp(nom) : "",
+          t.tipe === "PENGELUARAN" ? fmtRp(nom) : "",
+          fmtRp(saldoBerjalan),
+        ];
+      });
+
+      autoTable(doc, {
+        startY: boxY + 28,
+        head: [["#", "Tanggal", "Kategori", "Keterangan", "Pemasukan", "Pengeluaran", "Saldo"]],
+        body: rows,
+        styles: { fontSize: 8, cellPadding: 3, textColor: [226, 232, 240] },
+        headStyles: { fillColor: [15, 23, 42], textColor: [148, 163, 184], fontStyle: "bold", fontSize: 8 },
+        alternateRowStyles: { fillColor: [22, 33, 55] },
+        bodyStyles: { fillColor: [15, 23, 42] },
+        columnStyles: {
+          0: { cellWidth: 14, halign: "center" },
+          1: { cellWidth: 24 },
+          2: { cellWidth: 26 },
+          3: { cellWidth: "auto" },
+          4: { cellWidth: 28, halign: "right" },
+          5: { cellWidth: 28, halign: "right" },
+          6: { cellWidth: 28, halign: "right" },
+        },
+        didParseCell: (d: any) => {
+          if (d.section === "body" && d.column.index === 4 && d.cell.raw !== "") d.cell.styles.textColor = [16, 185, 129];
+          if (d.section === "body" && d.column.index === 5 && d.cell.raw !== "") d.cell.styles.textColor = [239, 68, 68];
+          if (d.section === "body" && d.column.index === 6) {
+            const raw = d.cell.raw as string;
+            const val = parseFloat(raw.replace(/[^0-9]/g, ""));
+            d.cell.styles.textColor = val >= 0 ? [56, 189, 248] : [245, 158, 11];
+          }
+        },
+        margin: { left: 10, right: 10 },
+      });
+
+      // Footer
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7); doc.setTextColor(100, 116, 139);
+        doc.text(`Halaman ${i} dari ${pageCount} — DynoBoo Financial Report`, pageW / 2, doc.internal.pageSize.getHeight() - 6, { align: "center" });
+      }
+
+      doc.save(`DynoBoo_LaporanFinansial_${Date.now()}.pdf`);
+      showToast("PDF berhasil diunduh!");
+      setShowExportModal(false);
+    } catch (e) {
+      console.error(e);
+      showToast("Gagal export PDF", "err");
+    }
+    setExporting(false);
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const XLSX = await getXlsxStyle();
+      const data = getExportData();
+
+      // ── Style helpers ──
+      const BD = { style: "thin", color: { rgb: "334155" } };
+      const borders = { top: BD, bottom: BD, left: BD, right: BD };
+      const mkCell = (v: any, t: string, color: string, bold = false, align = "left", numFmt = "", fill = "0F172A") => ({
+        v, t,
+        s: {
+          font: { name: "Calibri", sz: 10, bold, color: { rgb: color } },
+          fill: { patternType: "solid", fgColor: { rgb: fill } },
+          alignment: { horizontal: align, vertical: "center", wrapText: false },
+          border: borders,
+          ...(numFmt ? { numFmt } : {}),
+        },
+      });
+
+      const totalPem = data.filter(t => t.tipe === "PEMASUKAN").reduce((s, t) => s + Number(t.nominal), 0);
+      const totalPen = data.filter(t => t.tipe === "PENGELUARAN").reduce((s, t) => s + Number(t.nominal), 0);
+      const saldoBersih = totalPem - totalPen;
+      const wb = XLSX.utils.book_new();
+
+      // ────────────────────────────────────────────────────────────────
+      // SHEET 1: RINGKASAN
+      // ────────────────────────────────────────────────────────────────
+      const RUPIAH_FMT = '"Rp "#,##0';
+      const titleCell   = { v: "DynoBoo — Laporan Finansial", t: "s", s: { font: { name: "Calibri", sz: 16, bold: true, color: { rgb: "38BDF8" } }, fill: { patternType: "solid", fgColor: { rgb: "0F172A" } }, alignment: { horizontal: "left", vertical: "center" } } };
+      const subtitleCell = { v: `Dicetak: ${new Date().toLocaleDateString("id-ID")}`, t: "s", s: { font: { name: "Calibri", sz: 9, color: { rgb: "64748B" } }, fill: { patternType: "solid", fgColor: { rgb: "0F172A" } } } };
+      const secHeader   = (label: string) => ({ v: label, t: "s", s: { font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "94A3B8" } }, fill: { patternType: "solid", fgColor: { rgb: "1E293B" } }, border: borders } });
+      const labelC      = (label: string) => mkCell(label, "s", "CBD5E1", true, "left",  "", "1E293B");
+      const pemC        = (v: number)    => mkCell(v,     "n", "10B981", true, "right", RUPIAH_FMT, "162032");
+      const penC        = (v: number)    => mkCell(v,     "n", "EF4444", true, "right", RUPIAH_FMT, "1F1520");
+      const saldoC      = (v: number)    => mkCell(v,     "n", v >= 0 ? "38BDF8" : "F59E0B", true, "right", RUPIAH_FMT, "162035");
+      const thC         = (label: string) => ({ v: label, t: "s", s: { font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "FFFFFF" } }, fill: { patternType: "solid", fgColor: { rgb: "0F172A" } }, alignment: { horizontal: "center", vertical: "center" }, border: borders } });
+
+      const catRows = categories
+        .filter(c => exportJenis === "SEMUA" ? true : c.tipe === exportJenis)
+        .map((c, i) => {
+          const txs = data.filter(t => t.kategori_id === c.id);
+          const total = txs.reduce((s, t) => s + Number(t.nominal), 0);
+          const alt = i % 2 === 1 ? "1E293B" : "0F172A";
+          const numColor = c.tipe === "PEMASUKAN" ? "10B981" : "EF4444";
+          return [
+            mkCell(c.nama, "s", "E2E8F0", false, "left", "", alt),
+            mkCell(c.tipe, "s", numColor, true, "center", "", alt),
+            mkCell(txs.length, "n", "94A3B8", false, "center", "", alt),
+            mkCell(total, "n", numColor, true, "right", RUPIAH_FMT, alt),
+          ];
+        });
+
+      const ringkasanAoa = [
+        [titleCell],
+        [subtitleCell],
+        [],
+        [secHeader("RINGKASAN FINANSIAL")],
+        [labelC("Total Pemasukan"),  pemC(totalPem)],
+        [labelC("Total Pengeluaran"), penC(totalPen)],
+        [labelC("Saldo Bersih"),      saldoC(saldoBersih)],
+        [],
+        [secHeader("REKAP PER KATEGORI")],
+        [thC("Kategori"), thC("Tipe"), thC("Jml Transaksi"), thC("Total")],
+        ...catRows,
+      ];
+      const ws1 = XLSX.utils.aoa_to_sheet(ringkasanAoa);
+      ws1["!cols"] = [{ wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 22 }];
+      ws1["!rows"] = [{ hpt: 32 }, { hpt: 16 }];
+      ws1["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }]; // merge title
+      XLSX.utils.book_append_sheet(wb, ws1, "Ringkasan");
+
+      // ────────────────────────────────────────────────────────────────
+      // SHEET 2: MUTASI (bank-style)
+      // ────────────────────────────────────────────────────────────────
+      const headers = ["#", "Tanggal", "Kategori", "Keterangan", "Deskripsi", "Pemasukan", "Pengeluaran", "Saldo Berjalan"];
+      let saldoBerjalan = 0;
+      const mutasiRows = data.map((t, i) => {
+        const nom = Number(t.nominal);
+        const isPem = t.tipe === "PEMASUKAN";
+        saldoBerjalan += isPem ? nom : -nom;
+        const alt = i % 2 === 1 ? "1E293B" : "0F172A";
+        return [
+          mkCell(i + 1,                  "n", "94A3B8", false, "center", "",          alt),
+          mkCell(t.tanggal ?? "",        "s", "CBD5E1", false, "center", "",          alt),
+          mkCell(t.kategori?.nama ?? "", "s", "E2E8F0", false, "left",   "",          alt),
+          mkCell(t.detail ?? "",         "s", "E2E8F0", false, "left",   "",          alt),
+          mkCell(t.deskripsi ?? "",      "s", "94A3B8", false, "left",   "",          alt),
+          isPem  ? mkCell(nom, "n", "10B981", true,  "right", RUPIAH_FMT, alt) : mkCell("", "s", "334155", false, "center", "", alt),
+          !isPem ? mkCell(nom, "n", "EF4444", true,  "right", RUPIAH_FMT, alt) : mkCell("", "s", "334155", false, "center", "", alt),
+          mkCell(saldoBerjalan,           "n", saldoBerjalan >= 0 ? "38BDF8" : "F59E0B", true, "right", RUPIAH_FMT, alt),
+        ];
+      });
+
+      const headerRow = headers.map(h => thC(h));
+      const ws2 = XLSX.utils.aoa_to_sheet([headerRow, ...mutasiRows]);
+      ws2["!cols"] = [
+        { wch: 5 },   // #
+        { wch: 14 },  // Tanggal
+        { wch: 22 },  // Kategori
+        { wch: 32 },  // Keterangan
+        { wch: 28 },  // Deskripsi
+        { wch: 20 },  // Pemasukan
+        { wch: 20 },  // Pengeluaran
+        { wch: 22 },  // Saldo Berjalan
+      ];
+      ws2["!rows"] = [{ hpt: 22 }];
+      XLSX.utils.book_append_sheet(wb, ws2, "Mutasi");
+
+      XLSX.writeFile(wb, `DynoBoo_LaporanFinansial_${Date.now()}.xlsx`);
+      showToast("Excel berhasil diunduh!");
+      setShowExportModal(false);
+    } catch (e) {
+      console.error(e);
+      showToast("Gagal export Excel", "err");
+    }
+    setExporting(false);
+  };
+
   // ── Render ──
   return (
     <div className="animate-in">
@@ -304,6 +566,13 @@ export default function FinancialPage() {
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Pencatatan cashflow — pemasukan & pengeluaran</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            className="btn btn-sm"
+            style={{ background: "linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.15))", border: "1px solid rgba(16,185,129,0.4)", color: "#10b981", fontWeight: 700 }}
+            onClick={() => setShowExportModal(true)}
+          >
+            📥 Export
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={openAddCat} title="Kelola Kategori">
             🏷️ Kategori
           </button>
@@ -714,6 +983,140 @@ export default function FinancialPage() {
                 {deletingCatId ? "Menghapus..." : "Ya, Hapus"}
               </button>
               <button className="btn btn-secondary" style={{ flex: 1, justifyContent: "center", padding: "10px 0" }} onClick={() => setDeletingCat(null)}>Batal</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal: Export Laporan ── */}
+      {showExportModal && (
+        <Modal title="📥 Export Laporan Finansial" onClose={() => setShowExportModal(false)}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+            {/* Format Toggle */}
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Format Export</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["pdf", "excel"] as const).map(f => (
+                  <button key={f} onClick={() => setExportFormat(f)}
+                    style={{
+                      flex: 1, padding: "10px 0", borderRadius: 9,
+                      border: exportFormat === f ? (f === "pdf" ? "1.5px solid rgba(239,68,68,0.6)" : "1.5px solid rgba(16,185,129,0.6)") : "1px solid var(--border)",
+                      background: exportFormat === f ? (f === "pdf" ? "rgba(239,68,68,0.12)" : "rgba(16,185,129,0.12)") : "var(--bg-card-2)",
+                      color: exportFormat === f ? (f === "pdf" ? "#ef4444" : "#10b981") : "var(--text-muted)",
+                      fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all 0.15s",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    }}>
+                    {f === "pdf" ? "📄 PDF" : "📊 Excel"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Jenis */}
+            <Field label="Jenis Transaksi">
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["SEMUA", "PEMASUKAN", "PENGELUARAN"] as const).map(j => (
+                  <button key={j} onClick={() => { setExportJenis(j); setExportKatId(""); }}
+                    style={{
+                      flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all 0.15s",
+                      border: exportJenis === j
+                        ? j === "PEMASUKAN" ? "1.5px solid rgba(16,185,129,0.6)" : j === "PENGELUARAN" ? "1.5px solid rgba(239,68,68,0.6)" : "1.5px solid rgba(56,189,248,0.6)"
+                        : "1px solid var(--border)",
+                      background: exportJenis === j
+                        ? j === "PEMASUKAN" ? "rgba(16,185,129,0.12)" : j === "PENGELUARAN" ? "rgba(239,68,68,0.12)" : "rgba(56,189,248,0.12)"
+                        : "var(--bg-card-2)",
+                      color: exportJenis === j
+                        ? j === "PEMASUKAN" ? "#10b981" : j === "PENGELUARAN" ? "#ef4444" : "#38bdf8"
+                        : "var(--text-muted)",
+                    }}>
+                    {j === "SEMUA" ? "🔁 Semua" : j === "PEMASUKAN" ? "💰 Pemasukan" : "💸 Pengeluaran"}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            {/* Kategori */}
+            <Field label="Kategori">
+              <select className="input" value={exportKatId} onChange={e => setExportKatId(e.target.value)}>
+                <option value="">Semua Kategori</option>
+                {exportCategories.map(c => <option key={c.id} value={String(c.id)}>{c.nama} ({c.tipe})</option>)}
+              </select>
+            </Field>
+
+            {/* Date Range */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Dari">
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select className="input" style={{ flex: 1 }} value={exportDariBulan} onChange={e => setExportDariBulan(e.target.value)}>
+                    <option value="">Bulan</option>
+                    {MONTHS.map((m, i) => <option key={m} value={m}>{MONTH_NAMES[i]}</option>)}
+                  </select>
+                  <select className="input" style={{ flex: 1 }} value={exportDariTahun} onChange={e => setExportDariTahun(e.target.value)}>
+                    <option value="">Tahun</option>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </Field>
+              <Field label="Sampai">
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select className="input" style={{ flex: 1 }} value={exportSampaiBulan} onChange={e => setExportSampaiBulan(e.target.value)}>
+                    <option value="">Bulan</option>
+                    {MONTHS.map((m, i) => <option key={m} value={m}>{MONTH_NAMES[i]}</option>)}
+                  </select>
+                  <select className="input" style={{ flex: 1 }} value={exportSampaiTahun} onChange={e => setExportSampaiTahun(e.target.value)}>
+                    <option value="">Tahun</option>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </Field>
+            </div>
+
+            {/* Preview stats */}
+            {(() => {
+              const d = getExportData();
+              const pem = d.filter(t => t.tipe === "PEMASUKAN").reduce((s, t) => s + Number(t.nominal), 0);
+              const pen = d.filter(t => t.tipe === "PENGELUARAN").reduce((s, t) => s + Number(t.nominal), 0);
+              return (
+                <div style={{ padding: "12px 16px", borderRadius: 10, background: "var(--bg-card-2)", border: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  <div style={{ textAlign: "center", flex: 1 }}>
+                    <p style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Data</p>
+                    <p style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>{d.length} baris</p>
+                  </div>
+                  <div style={{ width: 1, background: "var(--border)" }} />
+                  <div style={{ textAlign: "center", flex: 1 }}>
+                    <p style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Pemasukan</p>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: "#10b981" }}>{fmtRp(pem)}</p>
+                  </div>
+                  <div style={{ width: 1, background: "var(--border)" }} />
+                  <div style={{ textAlign: "center", flex: 1 }}>
+                    <p style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Pengeluaran</p>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: "#ef4444" }}>{fmtRp(pen)}</p>
+                  </div>
+                  <div style={{ width: 1, background: "var(--border)" }} />
+                  <div style={{ textAlign: "center", flex: 1 }}>
+                    <p style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase" }}>Saldo</p>
+                    <p style={{ fontSize: 13, fontWeight: 800, color: pem - pen >= 0 ? "#38bdf8" : "#f59e0b" }}>{fmtRp(Math.abs(pem - pen))}</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                className="btn btn-sm"
+                disabled={exporting || getExportData().length === 0}
+                onClick={exportFormat === "pdf" ? handleExportPDF : handleExportExcel}
+                style={{
+                  flex: 1, justifyContent: "center", padding: "11px 0", fontWeight: 700, fontSize: 14,
+                  background: "linear-gradient(135deg,rgba(16,185,129,0.25),rgba(5,150,105,0.2))",
+                  border: "1px solid rgba(16,185,129,0.5)", color: "#10b981",
+                  opacity: getExportData().length === 0 ? 0.4 : 1,
+                }}>
+                {exporting ? "⏳ Mengekspor..." : `📥 Export ${exportFormat.toUpperCase()}`}
+              </button>
+              <button className="btn btn-secondary" style={{ padding: "0 20px" }} onClick={() => setShowExportModal(false)}>Batal</button>
             </div>
           </div>
         </Modal>

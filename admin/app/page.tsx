@@ -840,15 +840,25 @@ function KnowledgePage() {
 function WorkshopCalendar({ 
   workshops, 
   onAddWorkshop, 
-  onEditWorkshop 
+  onEditWorkshop,
+  onReschedule,
 }: { 
   workshops: Workshop[], 
   onAddWorkshop: (date: string) => void, 
-  onEditWorkshop: (w: Workshop) => void 
+  onEditWorkshop: (w: Workshop) => void,
+  onReschedule: (workshopId: number, newDate: string) => Promise<void>,
 }) {
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [todayStr] = useState(() => new Date().toISOString().split('T')[0]);
+
+  // Drag & Drop state
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dropTargetDate, setDropTargetDate] = useState<string | null>(null);
+  const [pendingMove, setPendingMove] = useState<{ workshop: Workshop; toDate: string } | null>(null);
+  const [rescheduling, setRescheduling] = useState(false);
+
+  const draggingWorkshop = draggingId !== null ? workshops.find(w => w.id === draggingId) ?? null : null;
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
@@ -945,6 +955,7 @@ function WorkshopCalendar({
           
           const dayWorkshops = workshops.filter(w => w.tanggal === d.dateStr);
           const isToday = d.dateStr === todayStr;
+          const isDropTarget = dropTargetDate === d.dateStr;
 
           return (
             <div 
@@ -952,24 +963,37 @@ function WorkshopCalendar({
               style={{ 
                 minHeight: viewMode === "month" ? 120 : 250, 
                 padding: "8px",
-                background: isToday ? "rgba(56,189,248,0.05)" : "var(--bg-card)",
+                background: isDropTarget ? "rgba(56,189,248,0.08)" : isToday ? "rgba(56,189,248,0.05)" : "var(--bg-card)",
+                border: isDropTarget ? "2px dashed rgba(56,189,248,0.5)" : "none",
                 position: "relative",
                 cursor: "pointer",
-                transition: "background 0.2s",
+                transition: "background 0.15s, border 0.15s",
               }}
               onMouseEnter={(e) => {
                 const target = e.currentTarget;
-                if(!isToday) target.style.background = "rgba(255,255,255,0.03)";
+                if (!isToday && !isDropTarget) target.style.background = "rgba(255,255,255,0.03)";
                 const addIcon = target.querySelector('.add-icon') as HTMLElement;
-                if(addIcon) addIcon.style.opacity = "1";
+                if (addIcon) addIcon.style.opacity = "1";
               }}
               onMouseLeave={(e) => {
                 const target = e.currentTarget;
-                target.style.background = isToday ? "rgba(56,189,248,0.05)" : "var(--bg-card)";
+                target.style.background = isDropTarget ? "rgba(56,189,248,0.08)" : isToday ? "rgba(56,189,248,0.05)" : "var(--bg-card)";
                 const addIcon = target.querySelector('.add-icon') as HTMLElement;
-                if(addIcon) addIcon.style.opacity = "0";
+                if (addIcon) addIcon.style.opacity = "0";
               }}
               onClick={() => onAddWorkshop(d.dateStr)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDropTargetDate(d.dateStr);
+              }}
+              onDragLeave={() => setDropTargetDate(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDropTargetDate(null);
+                if (!draggingWorkshop || draggingWorkshop.tanggal === d.dateStr) return;
+                setPendingMove({ workshop: draggingWorkshop, toDate: d.dateStr });
+                setDraggingId(null);
+              }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <span style={{ 
@@ -991,21 +1015,31 @@ function WorkshopCalendar({
                 {dayWorkshops.map(w => (
                   <div 
                     key={w.id} 
+                    draggable
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      setDraggingId(w.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => { setDraggingId(null); setDropTargetDate(null); }}
                     onClick={(e) => { e.stopPropagation(); onEditWorkshop(w); }}
                     style={{
-                      background: !w.is_active ? "rgba(239,68,68,0.15)" : w.status === "ACTIVE" ? "rgba(52,211,153,0.15)" : w.status === "UPCOMING" ? "rgba(251,191,36,0.15)" : "rgba(148,163,184,0.15)",
+                      background: draggingId === w.id ? "rgba(56,189,248,0.1)" : !w.is_active ? "rgba(239,68,68,0.15)" : w.status === "ACTIVE" ? "rgba(52,211,153,0.15)" : w.status === "UPCOMING" ? "rgba(251,191,36,0.15)" : "rgba(148,163,184,0.15)",
                       borderLeft: `3px solid ${!w.is_active ? "#ef4444" : w.status === "ACTIVE" ? "#34d399" : w.status === "UPCOMING" ? "#fbbf24" : "#94a3b8"}`,
                       padding: "4px 6px",
                       borderRadius: 4,
                       fontSize: 11,
                       fontWeight: 600,
                       color: "var(--text-primary)",
-                      cursor: "pointer",
+                      cursor: "grab",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
-                      textOverflow: "ellipsis"
+                      textOverflow: "ellipsis",
+                      opacity: draggingId === w.id ? 0.4 : 1,
+                      transition: "opacity 0.15s",
+                      userSelect: "none",
                     }}
-                    title={`${w.nama_workshop}\n${w.harga_normal ? `Rp ${w.harga_normal}` : ''}`}
+                    title={`${w.nama_workshop}\nDrag untuk pindah jadwal`}
                   >
                     {w.nama_workshop}
                   </div>
@@ -1015,6 +1049,78 @@ function WorkshopCalendar({
           );
         })}
       </div>
+
+      {/* ── Drag & Drop Confirm Modal ── */}
+      {pendingMove && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "var(--bg-card)", border: "1px solid var(--border)",
+            borderRadius: 16, padding: 28, maxWidth: 420, width: "90%",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+          }}>
+            {/* Icon */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(56,189,248,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📅</div>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>Konfirmasi Perubahan Jadwal</p>
+                <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Workshop akan dipindahkan ke tanggal baru</p>
+              </div>
+            </div>
+
+            {/* Workshop name */}
+            <div style={{ padding: "12px 16px", borderRadius: 10, background: "var(--bg-card-2)", border: "1px solid var(--border)", marginBottom: 16 }}>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Workshop</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{pendingMove.workshop.nama_workshop}</p>
+            </div>
+
+            {/* Date arrow */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ flex: 1, padding: "10px 14px", borderRadius: 9, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", textAlign: "center" }}>
+                <p style={{ fontSize: 10, color: "#ef4444", fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>Dari</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
+                  {new Date(pendingMove.workshop.tanggal + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              </div>
+              <div style={{ fontSize: 20, color: "#38bdf8", flexShrink: 0 }}>→</div>
+              <div style={{ flex: 1, padding: "10px 14px", borderRadius: 9, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", textAlign: "center" }}>
+                <p style={{ fontSize: 10, color: "#10b981", fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>Ke</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
+                  {new Date(pendingMove.toDate + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                disabled={rescheduling}
+                onClick={async () => {
+                  if (!pendingMove) return;
+                  setRescheduling(true);
+                  await onReschedule(pendingMove.workshop.id, pendingMove.toDate);
+                  setRescheduling(false);
+                  setPendingMove(null);
+                }}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  background: "linear-gradient(135deg,rgba(16,185,129,0.25),rgba(5,150,105,0.2))",
+                  border: "1px solid rgba(16,185,129,0.5)", color: "#10b981",
+                }}>
+                {rescheduling ? "⏳ Menyimpan..." : "✓ Ya, Pindahkan"}
+              </button>
+              <button
+                onClick={() => setPendingMove(null)}
+                style={{ flex: 1, padding: "11px 0", borderRadius: 9, fontSize: 14, fontWeight: 700, cursor: "pointer", background: "var(--bg-card-2)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
+                Batalkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1060,6 +1166,20 @@ function WorkshopsPage() {
     showToast("Workshop berhasil dihapus!");
     setDeletingWorkshop(null);
     load(); 
+  };
+
+  const handleReschedule = async (workshopId: number, newDate: string) => {
+    const res = await fetch(`/api/workshops/${workshopId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tanggal: newDate, edited_by: "superadmin" }),
+    });
+    if (res.ok) {
+      showToast("Jadwal workshop berhasil dipindahkan!");
+      load();
+    } else {
+      showToast("Gagal memindahkan jadwal workshop", "err");
+    }
   };
 
   const filteredWorkshops = workshops.filter(w => {
@@ -1139,7 +1259,7 @@ function WorkshopsPage() {
       )}
       
       {pageViewMode === "calendar" ? (
-        <WorkshopCalendar workshops={filteredWorkshops} onAddWorkshop={openAdd} onEditWorkshop={openEdit} />
+        <WorkshopCalendar workshops={filteredWorkshops} onAddWorkshop={openAdd} onEditWorkshop={openEdit} onReschedule={handleReschedule} />
       ) : (
       <div className="card" style={{ overflow: "hidden" }}>
         <TablePaginationTop
