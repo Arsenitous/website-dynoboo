@@ -2592,7 +2592,7 @@ export default function AdminPage() {
           </div>
           {/* Chat content */}
           <div style={{ flex: 1, overflow: "hidden", padding: "0 4px 4px" }}>
-            <AiAssistantPage />
+            <AiAssistantPage isFloating />
           </div>
         </div>
       )}
