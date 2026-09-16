@@ -53,6 +53,7 @@ export default function StokPage() {
   const [search, setSearch] = useState("");
   const [stockFilter, setStockFilter] = useState<"ALL" | "LOW_STOCK" | "TOP_SOLD">("ALL");
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
+  const [showTopPenjualan, setShowTopPenjualan] = useState(true);
 
   const showToast = (msg: string, type: "ok" | "err" = "ok") => {
     setToast({ msg, type });
@@ -273,6 +274,105 @@ export default function StokPage() {
             <span>Memfilter <strong>Item Terjual</strong> (diurutkan berdasarkan penjualan tertinggi).</span>
           </div>
           <button className="btn btn-secondary btn-sm" style={{ padding: "3px 10px", fontSize: 11 }} onClick={() => setStockFilter("ALL")}>Tampilkan Semua</button>
+        </div>
+      )}
+
+      {/* ─── TOP PENJUALAN ─── */}
+      {!loading && (stocks.some(s => s.qty_sold > 0) || workshops.some(w => w.tiket_terjual > 0)) && (
+        <div style={{ marginBottom: 20 }}>
+          {/* Section label — toggle header */}
+          <button
+            onClick={() => setShowTopPenjualan(v => !v)}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", gap: 8,
+              marginBottom: showTopPenjualan ? 12 : 0,
+              background: "none", border: "none", cursor: "pointer", padding: 0,
+            }}
+          >
+            <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
+            <span style={{
+              display: "flex", alignItems: "center", gap: 6,
+              fontSize: 11, fontWeight: 700, color: "var(--text-muted)",
+              letterSpacing: "0.08em", textTransform: "uppercase",
+              padding: "4px 10px", borderRadius: 6,
+              background: "var(--bg-card-2)", border: "1px solid var(--border)",
+              transition: "background 0.2s",
+            }}>
+              🏆 Top Penjualan
+              <svg
+                width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                style={{ transition: "transform 0.25s ease", transform: showTopPenjualan ? "rotate(0deg)" : "rotate(-90deg)" }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+            <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
+          </button>
+
+          {showTopPenjualan && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {/* Top Produk */}
+            <div className="card" style={{ padding: 14, borderTop: "2px solid rgba(167,139,250,0.5)" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>📦</span> Top Produk Terlaris
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {stocks
+                  .filter(s => s.qty_sold > 0)
+                  .sort((a, b) => b.qty_sold - a.qty_sold)
+                  .slice(0, 5)
+                  .map((s, i) => (
+                    <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 7, background: i === 0 ? "rgba(167,139,250,0.08)" : "var(--bg-card-2)", border: `1px solid ${i === 0 ? "rgba(167,139,250,0.25)" : "var(--border)"}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--text-muted)", width: 14, textAlign: "center", flexShrink: 0 }}>
+                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`}
+                        </span>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {s.item?.nama ?? `Item #${s.item_id}`}
+                        </p>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#a78bfa", flexShrink: 0, marginLeft: 8 }}>
+                        {s.qty_sold} <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>{s.item?.satuan ?? "pcs"}</span>
+                      </span>
+                    </div>
+                  ))}
+                {stocks.filter(s => s.qty_sold > 0).length === 0 && (
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: "10px 0" }}>Belum ada penjualan produk.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Top Workshop */}
+            <div className="card" style={{ padding: 14, borderTop: "2px solid rgba(56,189,248,0.5)" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>🎓</span> Top Workshop Terlaris
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {workshops
+                  .filter(w => w.tiket_terjual > 0)
+                  .sort((a, b) => b.tiket_terjual - a.tiket_terjual)
+                  .slice(0, 5)
+                  .map((w, i) => (
+                    <div key={w.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 7, background: i === 0 ? "rgba(56,189,248,0.08)" : "var(--bg-card-2)", border: `1px solid ${i === 0 ? "rgba(56,189,248,0.25)" : "var(--border)"}` }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--text-muted)", width: 14, textAlign: "center", flexShrink: 0 }}>
+                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`}
+                        </span>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {w.nama_workshop}
+                        </p>
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#38bdf8", flexShrink: 0, marginLeft: 8 }}>
+                        {w.tiket_terjual} <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>tiket</span>
+                      </span>
+                    </div>
+                  ))}
+                {workshops.filter(w => w.tiket_terjual > 0).length === 0 && (
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", padding: "10px 0" }}>Belum ada penjualan tiket workshop.</p>
+                )}
+              </div>
+            </div>
+          </div>}
         </div>
       )}
 
