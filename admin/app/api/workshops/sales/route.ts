@@ -41,47 +41,59 @@ function computeMatchScore(wsName: string, desc: string): number {
 }
 
 export async function GET() {
-  const { data: workshops } = await supabase.from("workshops").select("*").order("id", { ascending: true });
-  const { data: invoices } = await supabase.from("invoices").select("id").neq("status_pembayaran", "CANCELLED");
+  try {
+    const { data: workshops, error: wsErr } = await supabase.from("workshops").select("*").order("id", { ascending: true });
+    if (wsErr || !workshops) {
+      console.error("Workshops fetch error:", wsErr);
+      return NextResponse.json([]);
+    }
 
-  if (!workshops) return NextResponse.json([]);
-  if (!invoices || invoices.length === 0) {
-    return NextResponse.json(workshops.map(w => ({ ...w, tiket_terjual: 0 })));
-  }
+    const { data: invoices, error: invErr } = await supabase.from("invoices").select("id").neq("status_pembayaran", "CANCELLED");
+    if (invErr || !invoices || invoices.length === 0) {
+      return NextResponse.json(workshops.map(w => ({ ...w, tiket_terjual: 0 })));
+    }
 
-  const activeInvoiceIds = invoices.map(i => i.id);
+    const activeInvoiceIds = invoices.map(i => i.id);
 
-  const { data: invoiceItems } = await supabase
-    .from("invoice_items")
-    .select("*")
-    .in("invoice_id", activeInvoiceIds);
+    const { data: invoiceItems, error: itemsErr } = await supabase
+      .from("invoice_items")
+      .select("*")
+      .in("invoice_id", activeInvoiceIds);
 
-  const soldMap: Record<number, number> = {};
-  workshops.forEach(w => { soldMap[w.id] = 0; });
+    if (itemsErr) {
+      console.error("Invoice items fetch error:", itemsErr);
+    }
 
-  for (const item of (invoiceItems || [])) {
-    if (!item.description) continue;
+    const soldMap: Record<number, number> = {};
+    workshops.forEach(w => { soldMap[w.id] = 0; });
 
-    let bestMatchId: number | null = null;
-    let maxScore = 0;
+    for (const item of (invoiceItems || [])) {
+      if (!item.description) continue;
 
-    for (const ws of workshops) {
-      const score = computeMatchScore(ws.nama_workshop, item.description);
-      if (score > maxScore && score >= 50) {
-        maxScore = score;
-        bestMatchId = ws.id;
+      let bestMatchId: number | null = null;
+      let maxScore = 0;
+
+      for (const ws of workshops) {
+        const score = computeMatchScore(ws.nama_workshop, item.description);
+        if (score > maxScore && score >= 50) {
+          maxScore = score;
+          bestMatchId = ws.id;
+        }
+      }
+
+      if (bestMatchId !== null) {
+        soldMap[bestMatchId] = (soldMap[bestMatchId] || 0) + (item.qty || 1);
       }
     }
 
-    if (bestMatchId !== null) {
-      soldMap[bestMatchId] = (soldMap[bestMatchId] || 0) + (item.qty || 1);
-    }
+    const result = workshops.map(w => ({
+      ...w,
+      tiket_terjual: soldMap[w.id] || 0
+    }));
+
+    return NextResponse.json(result);
+  } catch (err: any) {
+    console.error("API GET /api/workshops/sales error:", err);
+    return NextResponse.json([]);
   }
-
-  const result = workshops.map(w => ({
-    ...w,
-    tiket_terjual: soldMap[w.id] || 0
-  }));
-
-  return NextResponse.json(result);
 }
