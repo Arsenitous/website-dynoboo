@@ -146,7 +146,7 @@ const GROUP_META: Record<string, { color: string; bg: string; emoji: string }> =
   EXTRA:         { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "📌" },
 };
 
-function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GROUPS[number]; currentPage: Page; onNavigate: (page: Page) => void }) {
+function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { group: typeof NAV_GROUPS[number]; currentPage: Page; onNavigate: (page: Page) => void; isAllCollapsed?: boolean }) {
   const isActive = (id: string) => currentPage === id || (currentPage === "invoice-detail" && id === "invoice-list");
 
   const hasActiveChild =
@@ -154,6 +154,7 @@ function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GR
     group.sub?.some(s => s.items.some(i => isActive(i.id)));
 
   const [open, setOpen] = useState(true);
+  useEffect(() => { if (isAllCollapsed !== undefined) setOpen(!isAllCollapsed); }, [isAllCollapsed]);
   const meta = GROUP_META[group.key] || { color: "#38bdf8", bg: "rgba(56,189,248,0.18)", emoji: "📌" };
 
   const getItemStyle = (active: boolean) => {
@@ -186,7 +187,7 @@ function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GR
             <button key={item.id} className={`nav-item ${active ? "active" : ""}`}
               style={getItemStyle(active)}
               onClick={() => onNavigate(item.id as Page)}>
-              {item.icon}<span>{item.label}</span>
+              {item.icon}<span className="nav-label">{item.label}</span>
             </button>
           );
         })}
@@ -198,6 +199,7 @@ function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GR
     <div style={{ marginBottom: 4 }}>
       {/* ── Premium section header ── */}
       <button
+        className="nav-group-btn"
         onClick={() => setOpen(o => !o)}
         style={{
           width: "100%", border: "none", outline: "none", cursor: "pointer",
@@ -219,7 +221,7 @@ function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GR
           boxShadow: `0 0 8px ${meta.color}40`,
         }}>{meta.emoji}</span>
 
-        <span style={{
+        <span className="ng-label" style={{
           flex: 1, fontSize: 10, fontWeight: 800, letterSpacing: "0.1em",
           textTransform: "uppercase", textAlign: "left",
           color: meta.color,
@@ -227,7 +229,7 @@ function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GR
         }}>{group.key}</span>
 
         {/* Chevron */}
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+        <svg className="ng-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none"
           stroke={meta.color}
           strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
           style={{ transition: "transform 0.22s ease", transform: open ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0 }}>
@@ -244,7 +246,7 @@ function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GR
             <button key={item.id} className={`nav-item ${active ? "active" : ""}`}
               style={getItemStyle(active)}
               onClick={() => onNavigate(item.id as Page)}>
-              {item.icon}<span>{item.label}</span>
+              {item.icon}<span className="nav-label">{item.label}</span>
             </button>
           );
         })}
@@ -257,7 +259,7 @@ function SidebarGroup({ group, currentPage, onNavigate }: { group: typeof NAV_GR
                 <button key={item.id} className={`nav-item ${active ? "active" : ""}`}
                   style={{ ...getItemStyle(active), paddingLeft: 16 }}
                   onClick={() => onNavigate(item.id as Page)}>
-                  {item.icon}<span>{item.label}</span>
+                  {item.icon}<span className="nav-label">{item.label}</span>
                 </button>
               );
             })}
@@ -395,7 +397,7 @@ function InvoiceTypesPage() {
             <Field label="Nama Tipe" required><input className="input" placeholder="Invoice Workshop" value={form.nama} onChange={e => setForm(f => ({ ...f, nama: e.target.value }))} /></Field>
             <Field label="Prefix (maks 5 huruf)" required><input className="input" placeholder="WSP" maxLength={5} style={{ textTransform: "uppercase" }} value={form.prefix} onChange={e => setForm(f => ({ ...f, prefix: e.target.value.toUpperCase() }))} /></Field>
             <Field label="Deskripsi"><input className="input" placeholder="Untuk pembayaran workshop..." value={form.deskripsi} onChange={e => setForm(f => ({ ...f, deskripsi: e.target.value }))} /></Field>
-            <Field label="Status"><div style={{ display: "flex", alignItems: "center", gap: 10 }}><div className={`toggle ${form.is_active ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))} /><span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{form.is_active ? "Aktif" : "Nonaktif"}</span></div></Field>
+            <Field label="Status"><div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}><div className={`toggle ${form.is_active ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))} /><span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{form.is_active ? "Aktif" : "Nonaktif"}</span></div></Field>
             {form.prefix && <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", fontSize: 12, color: "#38bdf8" }}>Preview: <code>DNB-{form.prefix}-2608-0001</code></div>}
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={save} disabled={saving || !form.nama || !form.prefix}><Icons.Save /> {saving ? "Menyimpan..." : "Simpan"}</button>
@@ -409,7 +411,7 @@ function InvoiceTypesPage() {
         <Modal title="Hapus Tipe Invoice" onClose={() => setDeletingType(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
                 <span style={{ fontSize: 24 }}>🗑️</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingType.nama}</p>
@@ -814,7 +816,7 @@ function KnowledgePage() {
         <Modal title="Hapus Knowledge Base" onClose={() => setDeletingKnowledge(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
                 <span style={{ fontSize: 24 }}>🗑️</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingKnowledge.keywords}</p>
@@ -1335,7 +1337,7 @@ function WorkshopsPage() {
             <Field label="Fasilitas"><textarea className="input" rows={3} placeholder="Alat rajut, yarn, pola, sertifikat..." value={form.fasilitas} onChange={e => setForm(f => ({ ...f, fasilitas: e.target.value }))} /></Field>
             <Field label="Status Event"><CustomSelect value={form.status} onChange={v => setForm(f => ({ ...f, status: v }))} options={STATUS_OPTS} /></Field>
             <Field label="Status Aktif (Tampil)">
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
                 <div className={`toggle ${form.is_active ? "on" : ""}`} onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))} />
                 <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{form.is_active ? "Aktif (Bisa diakses)" : "Nonaktif (Disembunyikan)"}</span>
               </div>
@@ -1349,7 +1351,7 @@ function WorkshopsPage() {
         <Modal title="Hapus Workshop" onClose={() => setDeletingWorkshop(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
                 <span style={{ fontSize: 24 }}>🗑️</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingWorkshop.nama_workshop}</p>
@@ -1920,7 +1922,7 @@ function AccessPage() {
         <Modal title="Hapus Admin User" onClose={() => setDeletingUser(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
                 <span style={{ fontSize: 24 }}>🗑️</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingUser.username}</p>
@@ -2283,6 +2285,8 @@ export default function AdminPage() {
   const [prefillPesanan, setPrefillPesanan] = useState<Pesanan | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAllCollapsed, setIsAllCollapsed] = useState(false);
+  const [sidebarMinimized, setSidebarMinimized] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifs, setNotifs] = useState<Notif[]>([]);
   const [userRole, setUserRole] = useState("admin");
@@ -2473,25 +2477,40 @@ export default function AdminPage() {
       )}
 
       {/* Sidebar */}
-      <aside className={`sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}>
+      <aside className={`sidebar ${mobileMenuOpen ? "mobile-open" : ""} ${sidebarMinimized ? "minimized" : ""}`}>
         {/* Logo */}
-        <div className="sidebar-logo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className={`sidebar-logo ${sidebarMinimized ? "minimized-logo" : ""}`} style={{ display: "flex", alignItems: "center", justifyContent: sidebarMinimized ? "center" : "space-between", padding: "16px 12px", gap: 8 }}>
+          {/* Logo + Title */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden", minWidth: 0 }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               <img src="/Logo_DynoBoo.png" alt="DynoBoo" style={{ height: 26, objectFit: "contain" }} />
             </div>
-            <div>
-              <p className="gradient-text" style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1 }}>DynoBoo</p>
-              <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>Admin Panel</p>
-            </div>
+            {!sidebarMinimized && (
+              <div style={{ minWidth: 0 }}>
+                <p className="gradient-text" style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1 }}>DynoBoo</p>
+                <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>Admin Panel</p>
+              </div>
+            )}
           </div>
-          <button className="btn btn-secondary btn-sm btn-icon" style={{ display: "none" }} onClick={() => setMobileMenuOpen(false)}>
+          {/* Minimize toggle button - always visible */}
+          {!sidebarMinimized && (
+            <button
+              className="btn btn-secondary btn-sm btn-icon desktop-minimize-btn"
+              title="Minimize sidebar"
+              onClick={() => setSidebarMinimized(true)}
+              style={{ flexShrink: 0 }}
+            >
+              <LayoutList size={16} />
+            </button>
+          )}
+          {/* Mobile close button */}
+          <button className="btn btn-secondary btn-sm btn-icon mobile-close-btn" style={{ display: "none" }} onClick={() => setMobileMenuOpen(false)}>
             <Icons.X />
           </button>
         </div>
 
         {/* Nav */}
-        <nav className="sidebar-nav">
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "4px 12px", marginBottom: "8px" }} className="collapse-all-btn-container"><button onClick={() => setIsAllCollapsed(!isAllCollapsed)} style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transition: "transform 0.2s", transform: isAllCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}><polyline points="6 9 12 15 18 9" /></svg>{isAllCollapsed ? "Expand All" : "Collapse All"}</button></div><nav className="sidebar-nav">
           {NAV_GROUPS.filter(group => {
             if (group.key === "MENU" || group.key === "EXTRA") return true;
             if (group.key === "PRODUK & WS") return hasAccess("produk_ws");
@@ -2507,19 +2526,30 @@ export default function AdminPage() {
               group={group}
               currentPage={currentPage}
               onNavigate={handleNavigate}
+              isAllCollapsed={isAllCollapsed}
             />
           ))}
         </nav>
 
         {/* Footer */}
         <div className="sidebar-footer">
-          <button className="nav-item" style={{ width: "100%", color: "#f87171" }} onClick={logout}>
-            <Icons.Logout /><span>Keluar</span>
+          {sidebarMinimized && (
+            <button
+              className="btn btn-secondary btn-sm btn-icon"
+              title="Expand sidebar"
+              onClick={() => setSidebarMinimized(false)}
+              style={{ width: "100%", marginBottom: 8, justifyContent: "center" }}
+            >
+              <ChevronRight size={16} />
+            </button>
+          )}
+          <button className="nav-item" style={{ width: "100%", color: "#f87171", justifyContent: sidebarMinimized ? "center" : undefined }} onClick={logout}>
+            <Icons.Logout />{!sidebarMinimized && <span>Keluar</span>}
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* Main content - flex:1 automatically adjusts when sidebar width changes */}
       <div className="main-content">
         {/* Topbar */}
         <div className="topbar">
@@ -2631,3 +2661,6 @@ export default function AdminPage() {
     </ToastProvider>
   );
 }
+
+
+

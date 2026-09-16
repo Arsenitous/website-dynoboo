@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 /* ─── Theme Variables (Light Blue / Cyan Theme) ───────────────────────────── */
 :root {
@@ -78,7 +78,7 @@ body { background: var(--bg-base); color: var(--text-primary); font-family: var(
   z-index: 1000;
 }
 .sidebar-logo { padding: 18px 18px 14px; border-bottom: 1px solid var(--border); }
-.sidebar-nav { flex: 1; padding: 10px 10px; }
+.sidebar-nav { flex: 1; padding: 10px 10px; overflow-y: auto; min-height: 0; }
 
 .nav-section-label {
   font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
@@ -364,3 +364,46 @@ select option:hover {
   /* Hide toast notifications */
   [style*="position: fixed"][style*="bottom: 24"] { display: none !important; }
 }
+
+/* ─── Sidebar Minimize Feature ────────────────────────────────────────────── */
+.sidebar { transition: width 0.3s ease; }
+.sidebar.minimized { width: 72px; overflow: hidden; }
+
+/* Center nav items, hide text */
+.sidebar.minimized .nav-item {
+  justify-content: center;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.sidebar.minimized .nav-item .nav-label { display: none; }
+
+/* Sub-items centered */
+.sidebar.minimized .nav-group-content { padding-left: 0 !important; }
+.sidebar.minimized .nav-group-content .nav-item {
+  justify-content: center;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+/* Section group header buttons: center emoji only, hide text + chevron */
+.sidebar.minimized .nav-group-btn {
+  justify-content: center !important;
+  border-left: none !important;
+  padding: 8px 4px !important;
+}
+.sidebar.minimized .nav-group-btn .ng-label { display: none; }
+.sidebar.minimized .nav-group-btn .ng-chevron { display: none; }
+
+/* Sub-section labels hidden */
+.sidebar.minimized .nav-group-content p { display: none; }
+
+/* Collapse-all button hidden when minimized */
+.sidebar.minimized .collapse-all-btn-container { display: none !important; }
+
+/* Desktop-only minimize toggle */
+.desktop-minimize-btn { display: inline-flex; }
+@media (max-width: 768px) {
+  .desktop-minimize-btn { display: none !important; }
+}
+
+
