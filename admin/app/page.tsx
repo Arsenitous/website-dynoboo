@@ -1,12 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, LayoutList, ChevronLeft, ChevronRight, Plus as PlusIcon } from "lucide-react";
-import type { KnowledgeBase, Workshop, Pesanan, ChatLog, PilihanJawaban, AdminUser, Invoice, Item } from "@/lib/supabase";
+import type { KnowledgeBase, Workshop, Pesanan, ChatLog, PilihanJawaban, AdminUser, Invoice, Item, PreOrder } from "@/lib/supabase";
 
-// ─── Import components ────────────────────────────────────────────────────────
+// â”€â”€â”€ Import components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import { Icons, CustomSelect, Modal, StatCard, Field, InvoiceStatusBadge, fmtRp, ToastProvider, useToast, SortIcon, TablePaginationTop, TablePaginationBottom } from "./components/ui";
 import { useSort } from "@/lib/useSort";
 import { usePagination } from "@/lib/usePagination";
@@ -19,14 +19,15 @@ import CompanyPage from "./components/CompanyPage";
 import AiAssistantPage from "./components/AiAssistantPage";
 import LoyaltyPage from "./components/LoyaltyPage";
 import MonthlyReportPage from "./components/MonthlyReportPage";
+import PreOrderListPage from "./components/PreOrderListPage";
 import FinancialPage from "./components/FinancialPage";
 import FinancialReportPage from "./components/FinancialReportPage";
 import InvoiceTransactionsPage from "./components/InvoiceTransactionsPage";
 import { AccessContext, useAccess } from "./components/AccessContext";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Page =
-  | "dashboard"
+  | "dashboard" | "pre-orders"
   | "katalog" | "stok"
   | "invoice-list" | "invoice-form" | "invoice-detail" | "invoice-types"
   | "loyalty" | "laporan-penjualan"
@@ -34,7 +35,7 @@ type Page =
   | "knowledge" | "workshops" | "pesanan" | "riwayat-pesanan" | "chatlogs"
   | "company" | "access" | "ai-assistant" | "manual";
 
-// ─── Navigation Structure ──────────────────────────────────────────────────────
+// â”€â”€â”€ Navigation Structure â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const NAV_GROUPS = [
   {
     key: "MENU",
@@ -48,6 +49,7 @@ const NAV_GROUPS = [
         items: [
           { id: "invoice-list", label: "Daftar Invoice", icon: <Icons.Receipt /> },
           { id: "invoice-form", label: "Buat Invoice", icon: <Icons.Plus /> },
+          { id: "pre-orders", label: "Pre-Order Telegram", icon: <Icons.Orders /> },
         ],
       },
       {
@@ -128,22 +130,22 @@ const NAV_GROUPS = [
   {
     key: "EXTRA",
     items: [
-      { id: "ai-assistant", label: "AI Assistant", icon: <span style={{fontSize:14}}>🦖</span> },
+      { id: "ai-assistant", label: "AI Assistant", icon: <span style={{fontSize:14}}>ðŸ¦–</span> },
       { id: "manual", label: "Buku Panduan", icon: <Icons.Book /> },
     ],
   },
 ];
 
-// ─── Group accent colours ───────────────────────────────────────────────────────
+// â”€â”€â”€ Group accent colours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const GROUP_META: Record<string, { color: string; bg: string; emoji: string }> = {
-  MENU:          { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "🏠" },
-  "PRODUK & WS": { color: "#a78bfa", bg: "rgba(167,139,250,0.18)", emoji: "📦" },
-  INVOICE:       { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "🧾" },
-  LOYALTY:       { color: "#fb7185", bg: "rgba(251,113,133,0.18)", emoji: "👥" },
-  FINANSIAL:     { color: "#10b981", bg: "rgba(16,185,129,0.18)",  emoji: "💰" },
-  // CHATBOT:       { color: "#34d399", bg: "rgba(52,211,153,0.18)",  emoji: "🤖" },
-  PENGATURAN:    { color: "#f59e0b", bg: "rgba(245,158,11,0.18)",  emoji: "⚙️" },
-  EXTRA:         { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "📌" },
+  MENU:          { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "ðŸ " },
+  "PRODUK & WS": { color: "#a78bfa", bg: "rgba(167,139,250,0.18)", emoji: "ðŸ“¦" },
+  INVOICE:       { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "ðŸ§¾" },
+  LOYALTY:       { color: "#fb7185", bg: "rgba(251,113,133,0.18)", emoji: "ðŸ‘¥" },
+  FINANSIAL:     { color: "#10b981", bg: "rgba(16,185,129,0.18)",  emoji: "ðŸ’°" },
+  // CHATBOT:       { color: "#34d399", bg: "rgba(52,211,153,0.18)",  emoji: "ðŸ¤–" },
+  PENGATURAN:    { color: "#f59e0b", bg: "rgba(245,158,11,0.18)",  emoji: "âš™ï¸" },
+  EXTRA:         { color: "#38bdf8", bg: "rgba(56,189,248,0.18)",  emoji: "ðŸ“Œ" },
 };
 
 function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { group: typeof NAV_GROUPS[number]; currentPage: Page; onNavigate: (page: Page) => void; isAllCollapsed?: boolean }) {
@@ -155,7 +157,7 @@ function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { grou
 
   const [open, setOpen] = useState(true);
   useEffect(() => { if (isAllCollapsed !== undefined) setOpen(!isAllCollapsed); }, [isAllCollapsed]);
-  const meta = GROUP_META[group.key] || { color: "#38bdf8", bg: "rgba(56,189,248,0.18)", emoji: "📌" };
+  const meta = GROUP_META[group.key] || { color: "#38bdf8", bg: "rgba(56,189,248,0.18)", emoji: "ðŸ“Œ" };
 
   const getItemStyle = (active: boolean) => {
     if (active) {
@@ -177,7 +179,7 @@ function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { grou
     };
   };
 
-  // MENU or EXTRA group — no toggle
+  // MENU or EXTRA group â€” no toggle
   if (group.key === "MENU" || group.key === "EXTRA") {
     return (
       <div style={{ marginBottom: 6 }}>
@@ -197,7 +199,7 @@ function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { grou
 
   return (
     <div style={{ marginBottom: 4 }}>
-      {/* ── Premium section header ── */}
+      {/* â”€â”€ Premium section header â”€â”€ */}
       <button
         className="nav-group-btn"
         onClick={() => setOpen(o => !o)}
@@ -237,7 +239,7 @@ function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { grou
         </svg>
       </button>
 
-      {/* ── Collapsible content ── */}
+      {/* â”€â”€ Collapsible content â”€â”€ */}
       <div className={`nav-group-content ${open ? "" : "collapsed"}`}
         style={{ paddingLeft: 4 }}>
         {group.items?.map((item) => {
@@ -252,7 +254,7 @@ function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { grou
         })}
         {group.sub?.map((sub, si) => (
           <div key={si}>
-            <p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-subtle)", paddingLeft: 10, marginTop: 8, marginBottom: 2, letterSpacing: "0.08em", textTransform: "uppercase" }}>— {sub.label}</p>
+            <p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-subtle)", paddingLeft: 10, marginTop: 8, marginBottom: 2, letterSpacing: "0.08em", textTransform: "uppercase" }}>â€” {sub.label}</p>
             {sub.items.map((item) => {
               const active = isActive(item.id);
               return (
@@ -272,7 +274,7 @@ function SidebarGroup({ group, currentPage, onNavigate, isAllCollapsed }: { grou
 
 
 function fmtDate(d: string) {
-  if (!d) return "—";
+  if (!d) return "â€”";
   // Plain date strings like "2026-12-25" should be parsed as local time
   // not as UTC midnight (which shifts the date in non-UTC timezones)
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
@@ -282,7 +284,7 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
-// ─── InvoiceTypes page ─────────────────────────────────────────────────────────
+// â”€â”€â”€ InvoiceTypes page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type InvoiceTypeRow = { id: number; nama: string; prefix: string; deskripsi: string | null; is_active: boolean };
 function InvoiceTypesPage() {
   const hasAccess = useAccess();
@@ -367,7 +369,7 @@ function InvoiceTypesPage() {
                   </td>
                   <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t.nama}</td>
                   <td><code style={{ background: "rgba(56,189,248,0.12)", padding: "2px 8px", borderRadius: 4, color: "#38bdf8", fontSize: 12 }}>{t.prefix}</code></td>
-                  <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{t.deskripsi ?? "—"}</td>
+                  <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{t.deskripsi ?? "â€”"}</td>
                   <td><code style={{ fontSize: 11, color: "#38bdf8" }}>DNB-{t.prefix}-2608-0001</code></td>
                   <td><span className={`badge ${t.is_active ? "badge-active" : "badge-closed"}`}>{t.is_active ? "Aktif" : "Nonaktif"}</span></td>
                   {(canUpdate || canDelete) && (
@@ -412,7 +414,7 @@ function InvoiceTypesPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                <span style={{ fontSize: 24 }}>🗑️</span>
+                <span style={{ fontSize: 24 }}>ðŸ—‘ï¸</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingType.nama}</p>
                   <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Prefix: {deletingType.prefix}</p>
@@ -420,7 +422,7 @@ function InvoiceTypesPage() {
               </div>
             </div>
             <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>âš ï¸</span>
               <span>Anda yakin ingin menghapus tipe invoice ini secara permanen?</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -434,7 +436,7 @@ function InvoiceTypesPage() {
   );
 }
 
-// ─── Dashboard Stats (Grid Redesign) ───────────────────────────────────────────
+// â”€â”€â”€ Dashboard Stats (Grid Redesign) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown) => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -480,16 +482,16 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Ringkasan performa toko & transaksi DynoBoo</p>
         </div>
         <div style={{ fontSize: 12, color: "var(--text-muted)", background: "var(--bg-card)", padding: "6px 14px", borderRadius: 8, border: "1px solid var(--border)" }}>
-          🗓️ {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          ðŸ—“ï¸ {new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </div>
       </div>
 
       {/* Top Grid - 4 KPI Cards */}
       <div className="dashboard-kpi-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 24 }}>
-        <StatCard label="Revenue (PAID)" value={loading ? "—" : fmtRp(totalPaidRevenue)} color="#10b981" bg="rgba(16,185,129,0.15)" icon={<Icons.TrendingUp />} sub="Total dana masuk" />
-        <StatCard label="Total Transaksi" value={loading ? "—" : (countPaid + countDP + countUnpaid)} color="#38bdf8" bg="rgba(56,189,248,0.15)" icon={<Icons.Receipt />} sub={`${countPaid} lunas, ${countUnpaid} belum`} />
-        <StatCard label="Katalog Produk" value={loading ? "—" : items.length} color="#06b6d4" bg="rgba(6,182,212,0.15)" icon={<Icons.Package />} sub={`${lowStockItems.length} stok kritis`} />
-        <StatCard label="Pesanan Pre-Order" value={loading ? "—" : pesanan.length} color="#f59e0b" bg="rgba(245,158,11,0.15)" icon={<Icons.Orders />} sub="dari chatbot" />
+        <StatCard label="Revenue (PAID)" value={loading ? "â€”" : fmtRp(totalPaidRevenue)} color="#10b981" bg="rgba(16,185,129,0.15)" icon={<Icons.TrendingUp />} sub="Total dana masuk" />
+        <StatCard label="Total Transaksi" value={loading ? "â€”" : (countPaid + countDP + countUnpaid)} color="#38bdf8" bg="rgba(56,189,248,0.15)" icon={<Icons.Receipt />} sub={`${countPaid} lunas, ${countUnpaid} belum`} />
+        <StatCard label="Katalog Produk" value={loading ? "â€”" : items.length} color="#06b6d4" bg="rgba(6,182,212,0.15)" icon={<Icons.Package />} sub={`${lowStockItems.length} stok kritis`} />
+        <StatCard label="Pesanan Pre-Order" value={loading ? "â€”" : pesanan.length} color="#f59e0b" bg="rgba(245,158,11,0.15)" icon={<Icons.Orders />} sub="dari chatbot" />
       </div>
 
       {/* Main 2-Column Grid */}
@@ -512,7 +514,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
                 <Icons.BarChart /> <span>Cek Stok</span>
               </button>
               <button className="btn btn-secondary" style={{ padding: "8px 12px", justifyContent: "center", fontSize: 12, height: 38 }} onClick={() => onNavigate("ai-assistant")}>
-                <span style={{ fontSize: 14 }}>🦖</span> <span>Tanya AI</span>
+                <span style={{ fontSize: 14 }}>ðŸ¦–</span> <span>Tanya AI</span>
               </button>
             </div>
           </div>
@@ -521,7 +523,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
           <div className="card" style={{ overflow: "hidden" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Transaksi Invoice Terbaru</p>
-              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("invoice-list")}>Semua Invoice →</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("invoice-list")}>Semua Invoice â†’</button>
             </div>
             
             {invoices.length === 0 ? (
@@ -570,13 +572,13 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
           {/* Stok Kritis Alert Widget */}
           <div className="card" style={{ padding: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Stok & Kuota Kritis (≤ 3)</p>
-              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("stok")}>Restock →</button>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Stok & Kuota Kritis (â‰¤ 3)</p>
+              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("stok")}>Restock â†’</button>
             </div>
             
             {lowStockItems.length === 0 ? (
               <div style={{ textAlign: "center", padding: "14px 0", color: "#34d399", fontSize: 12 }}>
-                ✓ Semua stok item dalam kondisi aman!
+                âœ“ Semua stok item dalam kondisi aman!
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -598,7 +600,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
             <div className="card" style={{ padding: 18 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Pesanan Pre-Order Chatbot</p>
-                <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("pesanan")}>Semua →</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("pesanan")}>Semua â†’</button>
               </div>
 
               {pesanan.length === 0 ? (
@@ -613,7 +615,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
                         <p style={{ fontWeight: 600, fontSize: 12, color: "var(--text-primary)" }}>{p.nama}</p>
                         <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{fmtDate(p.created_at)}</span>
                       </div>
-                      <p style={{ fontSize: 11, color: "#38bdf8", marginBottom: 6 }}>🛒 {p.produk}</p>
+                      <p style={{ fontSize: 11, color: "#38bdf8", marginBottom: 6 }}>ðŸ›’ {p.produk}</p>
                       <button className="btn btn-primary btn-sm" style={{ width: "100%", justifyContent: "center" }} onClick={() => onNavigate("invoice-form", p)}>
                         <Icons.Receipt /> Process to Invoice
                       </button>
@@ -628,7 +630,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
           <div className="card" style={{ padding: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Status Pembayaran</p>
-              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("invoice-list")}>Detail →</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => onNavigate("invoice-list")}>Detail â†’</button>
             </div>
             
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
@@ -673,7 +675,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: Page, data?: unknown
   );
 }
 
-// ─── Knowledge, Workshops, Pesanan, ChatLogs, Access pages ────────────────────
+// â”€â”€â”€ Knowledge, Workshops, Pesanan, ChatLogs, Access pages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function KnowledgePage() {
   const hasAccess = useAccess();
@@ -768,7 +770,7 @@ function KnowledgePage() {
                     <td><div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>{k.keywords.split(",").map(kw => <span key={kw} className="badge badge-form" style={{ fontSize: 10 }}>{kw.trim()}</span>)}</div></td>
                     <td style={{ maxWidth: 300 }}><p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{k.jawaban_utama}</p></td>
                     <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{k.pilihan_jawaban?.length ?? 0} opsi</td>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{k.keterangan ?? "—"}</td>
+                    <td style={{ color: "var(--text-muted)", fontSize: 12 }}>{k.keterangan ?? "â€”"}</td>
                     {(canUpdate || canDelete) && (
                       <td>
                         <div style={{ display: "flex", gap: 6 }}>
@@ -817,7 +819,7 @@ function KnowledgePage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                <span style={{ fontSize: 24 }}>🗑️</span>
+                <span style={{ fontSize: 24 }}>ðŸ—‘ï¸</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingKnowledge.keywords}</p>
                   <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{deletingKnowledge.jawaban_utama}</p>
@@ -825,7 +827,7 @@ function KnowledgePage() {
               </div>
             </div>
             <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>âš ï¸</span>
               <span>Anda yakin ingin menghapus entri knowledge base ini?</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -1052,7 +1054,7 @@ function WorkshopCalendar({
         })}
       </div>
 
-      {/* ── Drag & Drop Confirm Modal ── */}
+      {/* â”€â”€ Drag & Drop Confirm Modal â”€â”€ */}
       {pendingMove && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 1000,
@@ -1066,7 +1068,7 @@ function WorkshopCalendar({
           }}>
             {/* Icon */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(56,189,248,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>📅</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(56,189,248,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>ðŸ“…</div>
               <div>
                 <p style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>Konfirmasi Perubahan Jadwal</p>
                 <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Workshop akan dipindahkan ke tanggal baru</p>
@@ -1087,7 +1089,7 @@ function WorkshopCalendar({
                   {new Date(pendingMove.workshop.tanggal + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
                 </p>
               </div>
-              <div style={{ fontSize: 20, color: "#38bdf8", flexShrink: 0 }}>→</div>
+              <div style={{ fontSize: 20, color: "#38bdf8", flexShrink: 0 }}>â†’</div>
               <div style={{ flex: 1, padding: "10px 14px", borderRadius: 9, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", textAlign: "center" }}>
                 <p style={{ fontSize: 10, color: "#10b981", fontWeight: 700, textTransform: "uppercase", marginBottom: 2 }}>Ke</p>
                 <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
@@ -1112,7 +1114,7 @@ function WorkshopCalendar({
                   background: "linear-gradient(135deg,rgba(16,185,129,0.25),rgba(5,150,105,0.2))",
                   border: "1px solid rgba(16,185,129,0.5)", color: "#10b981",
                 }}>
-                {rescheduling ? "⏳ Menyimpan..." : "✓ Ya, Pindahkan"}
+                {rescheduling ? "â³ Menyimpan..." : "âœ“ Ya, Pindahkan"}
               </button>
               <button
                 onClick={() => setPendingMove(null)}
@@ -1144,7 +1146,7 @@ function WorkshopsPage() {
   const [deletingWorkshop, setDeletingWorkshop] = useState<Workshop | null>(null);
   const emptyForm = { nama_workshop: "", tanggal: "", harga_normal: "", harga_promo: "", fasilitas: "", status: "ACTIVE", is_active: true };
   const [form, setForm] = useState(emptyForm);
-  const STATUS_OPTS = [{ value: "ACTIVE", label: "✓ Aktif", color: "#34d399" }, { value: "UPCOMING", label: "◷ Upcoming", color: "#fbbf24" }, { value: "CLOSED", label: "✕ Tutup", color: "#94a3b8" }];
+  const STATUS_OPTS = [{ value: "ACTIVE", label: "âœ“ Aktif", color: "#34d399" }, { value: "UPCOMING", label: "â—· Upcoming", color: "#fbbf24" }, { value: "CLOSED", label: "âœ• Tutup", color: "#94a3b8" }];
 
   const load = useCallback(async () => { setLoading(true); const r = await fetch("/api/workshops"); setWorkshops(await r.json()); setLoading(false); }, []);
   useEffect(() => { load(); }, [load]);
@@ -1233,7 +1235,7 @@ function WorkshopsPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <p style={{ fontSize: 18, fontWeight: 700, color: s.color }}>{s.val}</p>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: `${s.color}20`, color: s.color }}>
-                  {isActive ? "Aktif" : "Lihat →"}
+                  {isActive ? "Aktif" : "Lihat â†’"}
                 </span>
               </div>
               <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>{s.label}</p>
@@ -1297,9 +1299,9 @@ function WorkshopsPage() {
                     </td>
                     <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{w.nama_workshop}</td>
                     <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDate(w.tanggal)}</td>
-                    <td>{w.harga_normal ? <span style={{ fontWeight: 600 }}>{w.harga_normal}</span> : "—"}</td>
-                    <td>{w.harga_promo ? <span style={{ color: "#34d399", fontWeight: 600 }}>{w.harga_promo}</span> : "—"}</td>
-                    <td style={{ color: "var(--text-muted)", fontSize: 12, maxWidth: 200 }}><span style={{ overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>{w.fasilitas ?? "—"}</span></td>
+                    <td>{w.harga_normal ? <span style={{ fontWeight: 600 }}>{w.harga_normal}</span> : "â€”"}</td>
+                    <td>{w.harga_promo ? <span style={{ color: "#34d399", fontWeight: 600 }}>{w.harga_promo}</span> : "â€”"}</td>
+                    <td style={{ color: "var(--text-muted)", fontSize: 12, maxWidth: 200 }}><span style={{ overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>{w.fasilitas ?? "â€”"}</span></td>
                     <td><span className={`badge ${w.status === "ACTIVE" ? "badge-active" : w.status === "UPCOMING" ? "badge-upcoming" : "badge-closed"}`}>{w.status}</span></td>
                     <td><span className={`badge ${w.is_active ? "badge-active" : "badge-closed"}`}>{w.is_active ? "Aktif" : "Nonaktif"}</span></td>
                     {(canUpdate || canDelete) && (
@@ -1352,7 +1354,7 @@ function WorkshopsPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                <span style={{ fontSize: 24 }}>🗑️</span>
+                <span style={{ fontSize: 24 }}>ðŸ—‘ï¸</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingWorkshop.nama_workshop}</p>
                   <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Tanggal: {fmtDate(deletingWorkshop.tanggal)}</p>
@@ -1360,7 +1362,7 @@ function WorkshopsPage() {
               </div>
             </div>
             <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>âš ï¸</span>
               <span>Anda yakin ingin menghapus workshop ini secara permanen?</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -1399,7 +1401,7 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
     const res = await fetch(`/api/pesanan/${confirmPesanan.id}/selesai`, { method: "PATCH" });
     setMarking(null);
     if (res.ok) {
-      showToast(`✅ Pesanan dari "${confirmPesanan.nama}" telah diselesaikan!`);
+      showToast(`âœ… Pesanan dari "${confirmPesanan.nama}" telah diselesaikan!`);
       load();
     } else {
       showToast("Gagal menyelesaikan pesanan. Coba lagi.", "err");
@@ -1412,7 +1414,7 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
     const res = await fetch(`/api/pesanan/${deletingPesanan.id}`, { method: "DELETE" });
     setIsDeleting(false);
     if (res.ok) {
-      showToast(`✅ Pesanan dari "${deletingPesanan.nama}" berhasil dihapus!`);
+      showToast(`âœ… Pesanan dari "${deletingPesanan.nama}" berhasil dihapus!`);
       setDeletingPesanan(null);
       load();
     } else {
@@ -1423,7 +1425,7 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
   return (
     <div className="animate-in">
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-        <div><h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>Pesanan (Pre-order)</h2><p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Dari chatbot Instagram — klik "Buat Invoice" untuk memproses, atau "Selesai" jika sudah ditangani</p></div>
+        <div><h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>Pesanan (Pre-order)</h2><p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>Dari chatbot Instagram â€” klik "Buat Invoice" untuk memproses, atau "Selesai" jika sudah ditangani</p></div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <div style={{ position: "relative" }}>
             <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", pointerEvents: "none" }}><Icons.Search /></span>
@@ -1495,26 +1497,26 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
         )}
       </div>
 
-      {/* ── Modal Konfirmasi Selesai ── */}
+      {/* â”€â”€ Modal Konfirmasi Selesai â”€â”€ */}
       {confirmPesanan && (
         <Modal title="Tandai Pesanan Selesai" onClose={() => setConfirmPesanan(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Info pesanan */}
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 24 }}>📋</span>
+                <span style={{ fontSize: 24 }}>ðŸ“‹</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{confirmPesanan.nama}</p>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{confirmPesanan.produk} • {confirmPesanan.no_hp}</p>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{confirmPesanan.produk} â€¢ {confirmPesanan.no_hp}</p>
                 </div>
               </div>
               <p style={{ fontSize: 12, color: "var(--text-muted)", borderTop: "1px solid rgba(16,185,129,0.2)", paddingTop: 10 }}>
-                📍 {confirmPesanan.alamat}
+                ðŸ“ {confirmPesanan.alamat}
               </p>
             </div>
             {/* Pesan konfirmasi */}
             <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>âš ï¸</span>
               <span>Pesanan ini akan dipindahkan ke <strong>Riwayat Pesanan</strong> dan tidak akan muncul lagi di daftar aktif.</span>
             </div>
             {/* Tombol aksi */}
@@ -1534,23 +1536,23 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
         </Modal>
       )}
 
-      {/* ── Modal Konfirmasi Hapus ── */}
+      {/* â”€â”€ Modal Konfirmasi Hapus â”€â”€ */}
       {deletingPesanan && (
         <Modal title="Hapus Pesanan" onClose={() => setDeletingPesanan(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Info pesanan */}
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <span style={{ fontSize: 24 }}>🗑️</span>
+                <span style={{ fontSize: 24 }}>ðŸ—‘ï¸</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingPesanan.nama}</p>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{deletingPesanan.produk} • {deletingPesanan.no_hp}</p>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{deletingPesanan.produk} â€¢ {deletingPesanan.no_hp}</p>
                 </div>
               </div>
             </div>
             {/* Pesan konfirmasi */}
             <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>âš ï¸</span>
               <span>Anda yakin ingin menghapus pesanan ini secara permanen? Data yang dihapus tidak dapat dikembalikan.</span>
             </div>
             {/* Tombol aksi */}
@@ -1574,7 +1576,7 @@ function PesananPage({ onCreateInvoiceFromPesanan }: { onCreateInvoiceFromPesana
   );
 }
 
-// ─── Riwayat Pesanan Page ───────────────────────────────────────────────────────
+// â”€â”€â”€ Riwayat Pesanan Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function RiwayatPesananPage() {
   const [riwayat, setRiwayat] = useState<Pesanan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1633,16 +1635,16 @@ function RiwayatPesananPage() {
                     <td style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>{fmtDate(p.created_at)}</td>
                     <td style={{ fontSize: 11, whiteSpace: "nowrap" }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#10b981", fontWeight: 600 }}>
-                        <Icons.Check /> {p.selesai_at ? fmtDate(p.selesai_at) : "—"}
+                        <Icons.Check /> {p.selesai_at ? fmtDate(p.selesai_at) : "â€”"}
                       </span>
                     </td>
-                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.diselesaikan_oleh ?? "—"}</td>
+                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.diselesaikan_oleh ?? "â€”"}</td>
                   </tr>
                 ))}
                 {riwayat.length === 0 && (
                   <tr>
                     <td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
-                      <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>âœ…</div>
                       Belum ada riwayat pesanan. Tandai pesanan aktif sebagai "Selesai" untuk melihatnya di sini.
                     </td>
                   </tr>
@@ -1708,7 +1710,7 @@ function ChatLogsPage() {
       {selected && (
         <Modal title="Detail Chat Log" onClose={() => setSelected(null)} wide>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--bg-card-2)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text-muted)" }}>Sender: <code style={{ color: "#22d3ee" }}>{selected.sender_id}</code> • {fmtDate(selected.created_at)}</div>
+            <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--bg-card-2)", border: "1px solid var(--border)", fontSize: 12, color: "var(--text-muted)" }}>Sender: <code style={{ color: "#22d3ee" }}>{selected.sender_id}</code> â€¢ {fmtDate(selected.created_at)}</div>
             <div><p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Pesan User</p><div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", fontSize: 13, lineHeight: 1.6 }}>{selected.user_message}</div></div>
             <div><p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Respons Bot</p><div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.15)", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{selected.bot_response}</div></div>
           </div>
@@ -1776,7 +1778,7 @@ function AccessPage() {
     setDeletingUser(null);
     load(); 
   };
-  const ROLE_OPTS = [{ value: "admin", label: "👤 Admin" }, { value: "superadmin", label: "⭐ Superadmin" }];
+  const ROLE_OPTS = [{ value: "admin", label: "ðŸ‘¤ Admin" }, { value: "superadmin", label: "â­ Superadmin" }];
   
   const togglePermission = (perm: string) => {
     setForm(f => {
@@ -1842,16 +1844,16 @@ function AccessPage() {
                       </span>
                     </td>
                     <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{u.username}</td>
-                    <td><span className={`badge ${u.role === "superadmin" ? "badge-ai" : "badge-form"}`}>{u.role === "superadmin" ? "⭐ Superadmin" : "👤 Admin"}</span></td>
+                    <td><span className={`badge ${u.role === "superadmin" ? "badge-ai" : "badge-form"}`}>{u.role === "superadmin" ? "â­ Superadmin" : "ðŸ‘¤ Admin"}</span></td>
                     <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{fmtDate(u.created_at)}</td>
                     <td>
                       {u.username !== "superadmin" ? (
                         <div style={{ display: "flex", gap: 6 }}>
-                          {canUpdate && <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openEdit(u)}><span style={{ fontSize: 14 }}>✏️</span></button>}
+                          {canUpdate && <button className="btn btn-secondary btn-sm btn-icon" onClick={() => openEdit(u)}><span style={{ fontSize: 14 }}>âœï¸</span></button>}
                           {canDelete && <button className="btn btn-danger btn-sm btn-icon" onClick={() => setDeletingUser(u)}><Icons.Trash /></button>}
                         </div>
                       ) : (
-                        <span style={{ fontSize: 11, color: "var(--text-subtle)", fontStyle: "italic" }}>—</span>
+                        <span style={{ fontSize: 11, color: "var(--text-subtle)", fontStyle: "italic" }}>â€”</span>
                       )}
                     </td>
                   </tr>
@@ -1923,7 +1925,7 @@ function AccessPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-                <span style={{ fontSize: 24 }}>🗑️</span>
+                <span style={{ fontSize: 24 }}>ðŸ—‘ï¸</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{deletingUser.username}</p>
                   <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Role: {deletingUser.role}</p>
@@ -1931,7 +1933,7 @@ function AccessPage() {
               </div>
             </div>
             <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>âš ï¸</span>
               <span>Anda yakin ingin menghapus akun admin ini? Tindakan ini tidak dapat dibatalkan.</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -1945,7 +1947,7 @@ function AccessPage() {
   );
 }
 
-// ─── Login Page ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Login Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function LoginPage({ onLogin }: { onLogin: (data: any) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -1973,14 +1975,14 @@ function LoginPage({ onLogin }: { onLogin: (data: any) => void }) {
             <img src="/Logo_DynoBoo.png" alt="DynoBoo" style={{ height: 54, objectFit: "contain" }} />
           </div>
           <h1 className="gradient-text" style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.02em" }}>DynoBoo</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 4 }}>Admin Panel — Semi POS Digital</p>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, marginTop: 4 }}>Admin Panel â€” Semi POS Digital</p>
         </div>
         <div className="card" style={{ padding: 28 }}>
           <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <Field label="Username"><input className="input" autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} placeholder="superadmin" /></Field>
             <Field label="Password">
               <div style={{ position: "relative" }}>
-                <input className="input" type={showPass ? "text" : "password"} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={{ width: "100%", paddingRight: 40 }} />
+                <input className="input" type={showPass ? "text" : "password"} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" style={{ width: "100%", paddingRight: 40 }} />
                 <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4 }}>
                   {showPass ? <Icons.EyeOff /> : <Icons.Eye />}
                 </button>
@@ -1995,11 +1997,11 @@ function LoginPage({ onLogin }: { onLogin: (data: any) => void }) {
   );
 }
 
-// ─── Notification types ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Notification types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type Notif = { id: string; type: "pesanan" | "stok" | "invoice" | "info"; title: string; body: string; time: Date; read: boolean; };
 
 const NOTIF_ICONS: Record<Notif["type"], string> = {
-  pesanan: "🛒", stok: "📦", invoice: "🧾", info: "ℹ️",
+  pesanan: "ðŸ›’", stok: "ðŸ“¦", invoice: "ðŸ§¾", info: "â„¹ï¸",
 };
 const NOTIF_COLORS: Record<Notif["type"], string> = {
   pesanan: "#f59e0b", stok: "#f87171", invoice: "#38bdf8", info: "#a78bfa",
@@ -2029,7 +2031,7 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
               id: "pesanan-new",
               type: "pesanan",
               title: `${pesanan.length} Pesanan Pre-order Masuk`,
-              body: `Terbaru: ${pesanan[0]?.nama ?? "Customer"} — ${pesanan[0]?.produk ?? ""}`,
+              body: `Terbaru: ${pesanan[0]?.nama ?? "Customer"} â€” ${pesanan[0]?.produk ?? ""}`,
               time: new Date(pesanan[0]?.created_at ?? Date.now()),
               read: false,
             });
@@ -2045,9 +2047,9 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
             newNotifs.push({
               id: "stok-low",
               type: "stok",
-              title: `${low.length} Item Stok Kritis (≤ 3)`,
+              title: `${low.length} Item Stok Kritis (â‰¤ 3)`,
               body: low.slice(0, 3).map((s: { item?: { nama: string }; qty_available: number }) =>
-                `${s.item?.nama ?? "Item"}: ${s.qty_available} tersisa`).join(" • "),
+                `${s.item?.nama ?? "Item"}: ${s.qty_available} tersisa`).join(" â€¢ "),
               time: new Date(),
               read: false,
             });
@@ -2177,7 +2179,7 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
           }}>
             <div>
               <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
-                🔔 Notifikasi
+                ðŸ”” Notifikasi
               </p>
               <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
                 {unread > 0 ? `${unread} belum dibaca` : "Semua sudah dibaca"}
@@ -2186,7 +2188,7 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
             <div style={{ display: "flex", gap: 6 }}>
               {unread > 0 && (
                 <button className="btn btn-secondary btn-sm" style={{ fontSize: 11 }} onClick={markAllRead}>
-                  ✓ Baca Semua
+                  âœ“ Baca Semua
                 </button>
               )}
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setNotifOpen(false)}>
@@ -2201,7 +2203,7 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
           <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
             {notifs.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--text-muted)" }}>
-                <p style={{ fontSize: 32, marginBottom: 12 }}>🔕</p>
+                <p style={{ fontSize: 32, marginBottom: 12 }}>ðŸ”•</p>
                 <p style={{ fontSize: 13, fontWeight: 600 }}>Tidak ada notifikasi</p>
                 <p style={{ fontSize: 12, marginTop: 4, color: "var(--text-subtle)" }}>
                   Notifikasi pesanan, stok, dan invoice akan muncul di sini
@@ -2254,7 +2256,7 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
           {notifs.length > 0 && (
             <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
               <button className="btn btn-secondary btn-sm" style={{ width: "100%", justifyContent: "center", fontSize: 12 }} onClick={clearAll}>
-                🗑 Hapus Semua Notifikasi
+                ðŸ—‘ Hapus Semua Notifikasi
               </button>
             </div>
           )}
@@ -2273,7 +2275,7 @@ function NotifBell({ notifs, setNotifs, notifOpen, setNotifOpen, onNavigate }: N
 }
 
 
-// ─── Main App ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function AdminPage() {
   const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -2283,6 +2285,7 @@ export default function AdminPage() {
   const [darkMode, setDarkMode] = useState(true);
   const [currentInvoiceId, setCurrentInvoiceId] = useState<number | null>(null);
   const [prefillPesanan, setPrefillPesanan] = useState<Pesanan | null>(null);
+  const [prefillPreOrder, setPrefillPreOrder] = useState<PreOrder | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAllCollapsed, setIsAllCollapsed] = useState(false);
@@ -2357,7 +2360,7 @@ export default function AdminPage() {
   };
 
   const goToInvoiceDetail = (id: number) => { setCurrentInvoiceId(id); setCurrentPage("invoice-detail"); setMobileMenuOpen(false); };
-  const goToInvoiceForm = () => { setPrefillPesanan(null); setCurrentPage("invoice-form"); setMobileMenuOpen(false); };
+  const goToInvoiceForm = () => { setPrefillPesanan(null); setPrefillPreOrder(null); setCurrentPage("invoice-form"); setMobileMenuOpen(false); };
   const createInvoiceFromPesanan = (p: Pesanan) => { setPrefillPesanan(p); setCurrentPage("invoice-form"); setMobileMenuOpen(false); };
   const handleInvoiceCreated = (id: number) => { setCurrentPage("invoice-detail"); setCurrentInvoiceId(id); setMobileMenuOpen(false); };
 
@@ -2440,6 +2443,7 @@ export default function AdminPage() {
     pesanan: "Pesanan", "riwayat-pesanan": "Riwayat Pesanan", chatlogs: "Chat Logs",
     company: "Profil Toko", access: "Access Control", "ai-assistant": "AI Assistant",
     manual: "Buku Panduan",
+    "pre-orders": "Pre-Order Telegram",
   };
 
   const renderPage = () => {
@@ -2448,7 +2452,8 @@ export default function AdminPage() {
       case "katalog": return <KatalogPage />;
       case "stok": return <StokPage />;
       case "invoice-list": return <InvoiceListPage onViewInvoice={goToInvoiceDetail} onCreateInvoice={goToInvoiceForm} initialSearch={typeof pageData === "string" ? pageData : ""} initialFilters={typeof pageData === "object" ? (pageData as any) : undefined} />;
-      case "invoice-form": return <InvoiceFormPage onSuccess={handleInvoiceCreated} onCancel={() => setCurrentPage("invoice-list")} prefillPesanan={prefillPesanan} />;
+      case "pre-orders": return <PreOrderListPage onConvertToInvoice={(po) => { setPrefillPreOrder(po); setPrefillPesanan(null); setCurrentPage("invoice-form"); setMobileMenuOpen(false); }} />;
+      case "invoice-form": return <InvoiceFormPage onSuccess={(id) => { setPrefillPreOrder(null); setPrefillPesanan(null); handleInvoiceCreated(id); }} onCancel={() => { setPrefillPreOrder(null); setPrefillPesanan(null); setCurrentPage("invoice-list"); }} prefillPesanan={prefillPesanan} prefillPreOrder={prefillPreOrder} />;
       case "invoice-detail": return currentInvoiceId ? <InvoiceDetailPage invoiceId={currentInvoiceId} onBack={() => setCurrentPage("invoice-list")} /> : null;
       case "invoice-types": return <InvoiceTypesPage />;
       case "knowledge": return <KnowledgePage />;
@@ -2555,7 +2560,7 @@ export default function AdminPage() {
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button className="theme-btn mobile-menu-btn" style={{ display: "none" }} onClick={() => setMobileMenuOpen(m => !m)}>
-              <span style={{ fontSize: 16 }}>☰</span>
+              <span style={{ fontSize: 16 }}>â˜°</span>
             </button>
             <h2 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>{PAGE_TITLES[currentPage]}</h2>
           </div>
@@ -2591,7 +2596,7 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* ── Floating AI Chat Bubble ───────────────────────────────────────── */}
+      {/* â”€â”€ Floating AI Chat Bubble â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {currentPage !== "ai-assistant" && aiOpen && (
         <div className="ai-chat-panel no-print" style={{
           position: "fixed", zIndex: 9998,
@@ -2613,10 +2618,10 @@ export default function AdminPage() {
             background: "linear-gradient(135deg,rgba(2,132,199,0.2),rgba(6,182,212,0.12))",
             display: "flex", alignItems: "center", gap: 10, flexShrink: 0,
           }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg,#0284c7,#06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🦖</div>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg,#0284c7,#06b6d4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>ðŸ¦–</div>
             <div style={{ flex: 1 }}>
               <p style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)", lineHeight: 1 }}>AI Assistant DynoBoo</p>
-              <p style={{ fontSize: 10, color: "#38bdf8", marginTop: 2 }}>Powered by Gemini ✨</p>
+              <p style={{ fontSize: 10, color: "#38bdf8", marginTop: 2 }}>Powered by Gemini âœ¨</p>
             </div>
             <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setAiOpen(false)}><Icons.X /></button>
           </div>
@@ -2627,7 +2632,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Bubble button — hidden on AI Assistant page */}
+      {/* Bubble button â€” hidden on AI Assistant page */}
       {currentPage !== "ai-assistant" && (
       <button
         className="no-print"
@@ -2647,7 +2652,7 @@ export default function AdminPage() {
         }}
         title={aiOpen ? "Tutup AI Assistant" : "Buka AI Assistant"}
       >
-        {aiOpen ? "✕" : "🦖"}
+        {aiOpen ? "âœ•" : "ðŸ¦–"}
       </button>
       )}
 

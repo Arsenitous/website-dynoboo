@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 import { useState, useCallback, useEffect } from "react";
-import type { InvoiceType, Item, Loyalty, Workshop } from "@/lib/supabase";
+import type { InvoiceType, Item, Loyalty, Workshop, PreOrder } from "@/lib/supabase";
 import { Icons, Field, CustomSelect, fmtRp } from "./ui";
 import type { Pesanan } from "@/lib/supabase";
 
-// ─── Draft Catatan ────────────────────────────────────────────────
+// â”€â”€â”€ Draft Catatan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 type CatatanDraft = { id: string; nama: string; isi: string };
 
 const DEFAULT_DRAFTS: CatatanDraft[] = [
@@ -40,16 +40,17 @@ type Props = {
   onSuccess: (invoiceId: number) => void;
   onCancel: () => void;
   prefillPesanan?: Pesanan | null;
+  prefillPreOrder?: PreOrder | null;
 };
 
 const STATUS_OPTIONS = [
-  { value: "UNPAID", label: "○ UNPAID", color: "#f87171" },
-  { value: "DP", label: "◑ DP", color: "#fbbf24" },
-  { value: "PAID", label: "✓ PAID", color: "#34d399" },
-  { value: "CANCELLED", label: "✕ CANCELLED", color: "#94a3b8" },
+  { value: "UNPAID", label: "â—‹ UNPAID", color: "#f87171" },
+  { value: "DP", label: "â—‘ DP", color: "#fbbf24" },
+  { value: "PAID", label: "âœ“ PAID", color: "#34d399" },
+  { value: "CANCELLED", label: "âœ• CANCELLED", color: "#94a3b8" },
 ];
 
-export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }: Props) {
+export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan, prefillPreOrder }: Props) {
   const [types, setTypes] = useState<InvoiceType[]>([]);
   const [katalog, setKatalog] = useState<Item[]>([]);
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
@@ -75,16 +76,16 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
   const [form, setForm] = useState({
     invoice_type_id: "",
     invoice_date: new Date().toISOString().split("T")[0],
-    customer_name: prefillPesanan?.nama ?? "",
+    customer_name: prefillPreOrder?.nama_pembeli ?? prefillPesanan?.nama ?? "",
     customer_contact: prefillPesanan?.no_hp ?? "",
     customer_address: prefillPesanan?.alamat ?? "",
     customer_email: "",
     discount: "0",
     status_pembayaran: "UNPAID",
-    catatan: "",
+    catatan: prefillPreOrder ? (prefillPreOrder.catatan ? `${prefillPreOrder.catatan}\n(Pre-order Telegram ${prefillPreOrder.telegram_username})` : `Pre-order Telegram (${prefillPreOrder.telegram_username})`) : "",
     pesanan_id: prefillPesanan?.id ?? null,
   });
-  const [items, setItems] = useState<LineItem[]>([]);
+  const [items, setItems] = useState<LineItem[]>(prefillPreOrder ? [{ description: prefillPreOrder.rincian_pesanan, qty: 1, satuan: "Pcs", harga_satuan: 0 }] : []);
 
   const load = useCallback(async () => {
     const [typesRes, itemsRes, custRes, wsRes] = await Promise.all([
@@ -168,7 +169,16 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
     }
 
     setSaving(false);
-    if (res.ok && data.id) onSuccess(data.id);
+    if (res.ok && data.id) {
+      if (prefillPreOrder) {
+        await fetch(`/api/pre-orders/${prefillPreOrder.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "DIPROSES", invoice_id: data.id }),
+        });
+      }
+      onSuccess(data.id);
+    }
   };
 
   const typeOptions = types.map(t => ({ value: String(t.id), label: t.nama }));
@@ -182,8 +192,8 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
   const activeWorkshops = workshops.filter(w => w.is_active);
   
   const combinedItems = [
-    ...activeKatalog.map(k => ({ type: 'product', id: k.id, nama: k.nama, icon: k.item_type?.icon ?? "📦", typeName: k.item_type?.nama ?? "Produk", stock: k.stock?.qty_available ?? 0, satuan: k.satuan, harga_normal: k.harga_normal, harga_promo: k.harga_promo })),
-    ...activeWorkshops.map(w => ({ type: 'workshop', id: w.id, nama: w.nama_workshop, icon: "🎫", typeName: "Workshop", stock: "∞", satuan: "Tiket", harga_normal: w.harga_normal ? Number(w.harga_normal) : 0, harga_promo: w.harga_promo ? Number(w.harga_promo) : null }))
+    ...activeKatalog.map(k => ({ type: 'product', id: k.id, nama: k.nama, icon: k.item_type?.icon ?? "ðŸ“¦", typeName: k.item_type?.nama ?? "Produk", stock: k.stock?.qty_available ?? 0, satuan: k.satuan, harga_normal: k.harga_normal, harga_promo: k.harga_promo })),
+    ...activeWorkshops.map(w => ({ type: 'workshop', id: w.id, nama: w.nama_workshop, icon: "ðŸŽ«", typeName: "Workshop", stock: "âˆž", satuan: "Tiket", harga_normal: w.harga_normal ? Number(w.harga_normal) : 0, harga_promo: w.harga_promo ? Number(w.harga_promo) : null }))
   ];
 
   const filteredKatalog = combinedItems.filter(item => {
@@ -197,7 +207,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)" }}>Buat Invoice Baru</h2>
-          {prefillPesanan && <p style={{ fontSize: 13, color: "#a78bfa", marginTop: 4 }}>📦 Pre-fill dari pesanan #{prefillPesanan.id}: {prefillPesanan.produk}</p>}
+          {prefillPesanan && <p style={{ fontSize: 13, color: "#a78bfa", marginTop: 4 }}>ðŸ“¦ Pre-fill dari pesanan #{prefillPesanan.id}: {prefillPesanan.produk}</p>}
         </div>
         <button className="btn btn-secondary btn-sm" onClick={onCancel}><Icons.X /> Batal</button>
       </div>
@@ -209,7 +219,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
             <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginBottom: 14, letterSpacing: "0.06em", textTransform: "uppercase" }}>Info Invoice</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <Field label="Tipe Invoice" required>
-                <CustomSelect value={form.invoice_type_id} onChange={v => setForm(f => ({ ...f, invoice_type_id: v }))} options={typeOptions.length ? typeOptions : [{ value: "", label: "— Pilih —" }]} />
+                <CustomSelect value={form.invoice_type_id} onChange={v => setForm(f => ({ ...f, invoice_type_id: v }))} options={typeOptions.length ? typeOptions : [{ value: "", label: "â€” Pilih â€”" }]} />
               </Field>
               <Field label="Tanggal Invoice" required>
                 <input className="input" type="date" value={form.invoice_date} onChange={e => setForm(f => ({ ...f, invoice_date: e.target.value }))} />
@@ -260,7 +270,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
               }}>
                 <div>
                   <p style={{ fontSize: 12, fontWeight: 600, color: saveToLogbook ? "#34d399" : "var(--text-secondary)" }}>
-                    💾 Simpan ke Logbook Customer
+                    ðŸ’¾ Simpan ke Logbook Customer
                   </p>
                   <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
                     {saveToLogbook
@@ -344,7 +354,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
                 onClick={() => { setShowDraftModal(true); setShowAddDraft(false); setDraftPreview(null); }}
                 style={{ fontSize: 11, gap: 5 }}
               >
-                <span style={{ fontSize: 13 }}>📋</span> Pilih Draft
+                <span style={{ fontSize: 13 }}>ðŸ“‹</span> Pilih Draft
               </button>
             </div>
 
@@ -373,7 +383,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
                     }}
                     title={`Klik untuk pakai draft: ${d.nama}`}
                   >
-                    📋 {d.nama}
+                    ðŸ“‹ {d.nama}
                   </button>
                 ))}
               </div>
@@ -386,7 +396,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
         </div>
       </div>
 
-      {/* ── Katalog Modal ── */}
+      {/* â”€â”€ Katalog Modal â”€â”€ */}
       {showKatalog && (
         <div className="modal-overlay" onClick={() => setShowKatalog(false)}>
           <div className="modal-box" style={{ maxWidth: 700 }} onClick={e => e.stopPropagation()}>
@@ -412,8 +422,8 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
               <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                 {[
                   { id: "ALL", label: "Semua" },
-                  { id: "PRODUK", label: "📦 Produk" },
-                  { id: "WORKSHOP", label: "🎫 Workshop" }
+                  { id: "PRODUK", label: "ðŸ“¦ Produk" },
+                  { id: "WORKSHOP", label: "ðŸŽ« Workshop" }
                 ].map(t => (
                   <button key={t.id} className={`btn btn-sm ${katalogFilter === t.id ? "btn-primary" : "btn-secondary"}`} onClick={() => setKatalogFilter(t.id as any)} style={{ borderRadius: 20 }}>
                     {t.label}
@@ -433,7 +443,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
                     <span style={{ fontSize: 20 }}>{item.icon}</span>
                     <div style={{ flex: 1 }}>
                       <p style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{item.nama}</p>
-                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.typeName} • Stok: {item.stock} {item.satuan !== "Tiket" ? item.satuan : ""}</p>
+                      <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.typeName} â€¢ Stok: {item.stock} {item.satuan !== "Tiket" ? item.satuan : ""}</p>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       {item.harga_promo ? (
@@ -451,7 +461,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
         </div>
       )}
 
-      {/* ── Logbook Customer Modal ── */}
+      {/* â”€â”€ Logbook Customer Modal â”€â”€ */}
       {showLogbook && (
         <div className="modal-overlay" onClick={() => setShowLogbook(false)}>
           <div className="modal-box" style={{ maxWidth: 620 }} onClick={e => e.stopPropagation()}>
@@ -483,7 +493,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
             <div style={{ padding: 12, maxHeight: "55vh", overflowY: "auto" }}>
               {filteredCustomers.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-muted)" }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>ðŸ”</div>
                   <p style={{ fontSize: 13 }}>
                     {loyalties.length === 0 ? "Logbook masih kosong. Tambah customer terlebih dahulu." : "Tidak ada customer yang cocok."}
                   </p>
@@ -516,12 +526,12 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)" }}>{c.nama}</p>
                         <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                          {[c.no_hp, c.email].filter(Boolean).join(" · ") || "Tidak ada kontak"}
+                          {[c.no_hp, c.email].filter(Boolean).join(" Â· ") || "Tidak ada kontak"}
                         </p>
                       </div>
                       {c.alamat && (
                         <p style={{ fontSize: 11, color: "var(--text-subtle)", maxWidth: 140, textAlign: "right" }}>
-                          {c.alamat.length > 35 ? c.alamat.slice(0, 35) + "…" : c.alamat}
+                          {c.alamat.length > 35 ? c.alamat.slice(0, 35) + "â€¦" : c.alamat}
                         </p>
                       )}
                       <span style={{ color: "#34d399", flexShrink: 0 }}>
@@ -536,14 +546,14 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
         </div>
       )}
 
-      {/* ── Draft Catatan Modal ── */}
+      {/* â”€â”€ Draft Catatan Modal â”€â”€ */}
       {showDraftModal && (
         <div className="modal-overlay" onClick={() => { setShowDraftModal(false); setShowAddDraft(false); }}>
           <div className="modal-box" style={{ maxWidth: 580 }} onClick={e => e.stopPropagation()}>
             {/* Header modal */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
               <div>
-                <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>📋 Draft Catatan</h3>
+                <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>ðŸ“‹ Draft Catatan</h3>
                 <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Pilih template catatan atau tambah draft baru</p>
               </div>
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => { setShowDraftModal(false); setShowAddDraft(false); }}><Icons.X /></button>
@@ -563,11 +573,11 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
                 >
                   {/* Draft header row */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
-                    <span style={{ fontSize: 18 }}>📋</span>
+                    <span style={{ fontSize: 18 }}>ðŸ“‹</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)" }}>{d.nama}</p>
                       <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {d.isi.slice(0, 80)}{d.isi.length > 80 ? "…" : ""}
+                        {d.isi.slice(0, 80)}{d.isi.length > 80 ? "â€¦" : ""}
                       </p>
                     </div>
                     <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -611,7 +621,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan }:
 
               {drafts.length === 0 && (
                 <div style={{ textAlign: "center", padding: "32px 0", color: "var(--text-muted)" }}>
-                  <p style={{ fontSize: 32, marginBottom: 8 }}>📭</p>
+                  <p style={{ fontSize: 32, marginBottom: 8 }}>ðŸ“­</p>
                   <p style={{ fontSize: 13 }}>Belum ada draft. Tambah draft pertamamu!</p>
                 </div>
               )}

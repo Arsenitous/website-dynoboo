@@ -224,3 +224,20 @@ export type PaymentWithInvoice = Payment & {
   sudah_diimport: boolean;
   financial_transaction_id?: number;
 };
+
+// --------------- Telegram Pre-Order Types ---------------
+
+export type PreOrder = {
+  id: number;
+  telegram_chat_id: number;
+  telegram_username: string | null;
+  nama_pembeli: string;
+  jenis_pesanan: string;
+  rincian_pesanan: string;
+  catatan: string | null;
+  status: "PENDING" | "DIPROSES" | "DIBATALKAN";
+  invoice_id: number | null;
+  invoice?: Pick<Invoice, "id" | "invoice_no" | "customer_name" | "grand_total" | "status_pembayaran">;
+  created_at: string;
+  updated_at: string;
+};
