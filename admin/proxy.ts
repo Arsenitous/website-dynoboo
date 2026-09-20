@@ -39,7 +39,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Cek session cookie â€” cukup cek keberadaan dan nilai tidak kosong
+  // Cek session cookie — cukup cek keberadaan dan nilai tidak kosong
   const session = request.cookies.get("dynoboo_session")?.value;
   if (!session || session.length < 8) {
     // Return 401 if it's an API request, else redirect to login

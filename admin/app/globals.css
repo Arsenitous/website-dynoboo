@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 /* ─── Theme Variables (Light Blue / Cyan Theme) ───────────────────────────── */
 :root {
@@ -199,11 +199,9 @@ select option:hover {
 /* ─── Modal ─────────────────────────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 9999;
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: 32px 16px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px;
   background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
 }
 .modal-box {
   position: relative;
@@ -212,8 +210,8 @@ select option:hover {
   box-shadow: 0 24px 60px rgba(0,0,0,0.5);
   animation: fadeSlideUp 0.2s ease;
   display: flex; flex-direction: column;
-  max-height: calc(100vh - 64px);
-  margin: auto 0;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
 }
 .modal-box-header { flex-shrink: 0; padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; border-radius: 16px 16px 0 0; }
 .modal-box-body { flex: 1; overflow-y: auto; overflow-x: visible; padding: 20px; }

@@ -176,23 +176,23 @@ export default function StokPage() {
           color: toast.type === "ok" ? "#34d399" : "#f87171",
           backdropFilter: "blur(8px)",
         }}>
-          {toast.type === "ok" ? "âœ“ " : "âš  "}{toast.msg}
+          {toast.type === "ok" ? "✓ " : "⚠️ "}{toast.msg}
         </div>
       )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Stok & Kuota</h2>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>{stocks.length} item terlacak â€¢ {totalSold} total terjual</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>{stocks.length} item terlacak • {totalSold} total terjual</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={load}><Icons.Refresh /> Refresh</button>
       </div>
 
-      {/* â”€â”€â”€ SECTION 1: Produk yang belum punya stok â”€â”€â”€ */}
+      {/* ─── SECTION 1: Produk yang belum punya stok ─── */}
       {canCreate && unstockedItems.length > 0 && (
         <div className="card" style={{ padding: 16, marginBottom: 20, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.04)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <span style={{ fontSize: 16 }}>âš ï¸</span>
+            <span style={{ fontSize: 16 }}>⚠️</span>
             <p style={{ fontWeight: 700, fontSize: 14, color: "#f59e0b" }}>{unstockedItems.length} Produk Belum Diinisialisasi Stok</p>
           </div>
           <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
@@ -206,10 +206,10 @@ export default function StokPage() {
                 background: "var(--bg-card-2)", border: "1px solid var(--border)",
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 13 }}>{item.item_type?.icon ?? "ðŸ“¦"}</span>
+                  <span style={{ fontSize: 13 }}>{item.item_type?.icon ?? "📦"}</span>
                   <div>
                     <p style={{ fontWeight: 600, fontSize: 13 }}>{item.nama}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.item_type?.nama ?? "â€”"} â€¢ {fmtRp(item.harga_normal)}</p>
+                    <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.item_type?.nama ?? "—"} • {fmtRp(item.harga_normal)}</p>
                   </div>
                 </div>
                 <button className="btn btn-primary btn-sm" onClick={() => openAddFrom(item)}>
@@ -221,12 +221,12 @@ export default function StokPage() {
         </div>
       )}
 
-      {/* â”€â”€â”€ Summary cards (Interactive Filter) â”€â”€â”€ */}
+      {/* ─── Summary cards (Interactive Filter) ─── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 16 }}>
         {[
           { label: "Total Item", value: String(stocks.length), color: "#a78bfa", bg: "rgba(124,58,237,0.15)", icon: <Icons.Package />, filterKey: "ALL" as const },
           { label: "Total Terjual", value: String(totalSold), color: "#34d399", bg: "rgba(52,211,153,0.15)", icon: <Icons.TrendingUp />, filterKey: "TOP_SOLD" as const },
-          { label: "Stok Kritis (â‰¤ 3)", value: String(lowStock), color: lowStock > 0 ? "#f87171" : "var(--text-muted)", bg: "rgba(239,68,68,0.15)", icon: <Icons.AlertTriangle />, filterKey: "LOW_STOCK" as const },
+          { label: "Stok Kritis (≤ 3)", value: String(lowStock), color: lowStock > 0 ? "#f87171" : "var(--text-muted)", bg: "rgba(239,68,68,0.15)", icon: <Icons.AlertTriangle />, filterKey: "LOW_STOCK" as const },
         ].map(card => {
           const isActive = stockFilter === card.filterKey;
           return (
@@ -248,7 +248,7 @@ export default function StokPage() {
                   <span style={{ color: card.color }}>{card.icon}</span>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: `${card.color}20`, color: card.color }}>
-                  {isActive ? "Aktif" : "Lihat â†’"}
+                  {isActive ? "Aktif" : "Lihat →"}
                 </span>
               </div>
               <div style={{ marginTop: 8 }}>
@@ -265,7 +265,7 @@ export default function StokPage() {
         <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center", color: "#f87171", fontSize: 13 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Icons.AlertTriangle />
-            <span>Memfilter <strong>Stok Kritis (â‰¤ 3 Pcs)</strong>. Terdapat {lowStock} item perlu restock.</span>
+            <span>Memfilter <strong>Stok Kritis (≤ 3 Pcs)</strong>. Terdapat {lowStock} item perlu restock.</span>
           </div>
           <button className="btn btn-secondary btn-sm" style={{ padding: "3px 10px", fontSize: 11 }} onClick={() => setStockFilter("ALL")}>Tampilkan Semua</button>
         </div>
@@ -281,10 +281,10 @@ export default function StokPage() {
         </div>
       )}
 
-      {/* â”€â”€â”€ TOP PENJUALAN â”€â”€â”€ */}
+      {/* ─── TOP PENJUALAN ─── */}
       {!loading && (safeStocks.some(s => s.qty_sold > 0) || safeWorkshops.some(w => w.tiket_terjual > 0)) && (
         <div style={{ marginBottom: 20 }}>
-          {/* Section label â€” toggle header */}
+          {/* Section label — toggle header */}
           <button
             onClick={() => setShowTopPenjualan(v => !v)}
             style={{
@@ -302,7 +302,7 @@ export default function StokPage() {
               background: "var(--bg-card-2)", border: "1px solid var(--border)",
               transition: "background 0.2s",
             }}>
-              ðŸ† Top Penjualan
+              🏆 Top Penjualan
               <svg
                 width="12" height="12" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
@@ -318,7 +318,7 @@ export default function StokPage() {
             {/* Top Produk */}
             <div className="card" style={{ padding: 14, borderTop: "2px solid rgba(167,139,250,0.5)" }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                <span>ðŸ“¦</span> Top Produk Terlaris
+                <span>📦</span> Top Produk Terlaris
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {stocks
@@ -329,7 +329,7 @@ export default function StokPage() {
                     <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 7, background: i === 0 ? "rgba(167,139,250,0.08)" : "var(--bg-card-2)", border: `1px solid ${i === 0 ? "rgba(167,139,250,0.25)" : "var(--border)"}` }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--text-muted)", width: 14, textAlign: "center", flexShrink: 0 }}>
-                          {i === 0 ? "ðŸ¥‡" : i === 1 ? "ðŸ¥ˆ" : i === 2 ? "ðŸ¥‰" : `${i + 1}.`}
+                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`}
                         </span>
                         <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {s.item?.nama ?? `Item #${s.item_id}`}
@@ -349,7 +349,7 @@ export default function StokPage() {
             {/* Top Workshop */}
             <div className="card" style={{ padding: 14, borderTop: "2px solid rgba(56,189,248,0.5)" }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                <span>ðŸŽ“</span> Top Workshop Terlaris
+                <span>🎓</span> Top Workshop Terlaris
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {workshops
@@ -360,7 +360,7 @@ export default function StokPage() {
                     <div key={w.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: 7, background: i === 0 ? "rgba(56,189,248,0.08)" : "var(--bg-card-2)", border: `1px solid ${i === 0 ? "rgba(56,189,248,0.25)" : "var(--border)"}` }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                         <span style={{ fontSize: 11, fontWeight: 800, color: i === 0 ? "#f59e0b" : i === 1 ? "#94a3b8" : i === 2 ? "#cd7c3b" : "var(--text-muted)", width: 14, textAlign: "center", flexShrink: 0 }}>
-                          {i === 0 ? "ðŸ¥‡" : i === 1 ? "ðŸ¥ˆ" : i === 2 ? "ðŸ¥‰" : `${i + 1}.`}
+                          {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}.`}
                         </span>
                         <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {w.nama_workshop}
@@ -385,11 +385,11 @@ export default function StokPage() {
         <input className="input" style={{ paddingLeft: 36 }} placeholder="Cari nama item..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {/* â”€â”€â”€ SECTION 2: Stok & Kuota Table â”€â”€â”€ */}
+      {/* ─── SECTION 2: Stok & Kuota Table ─── */}
       <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          {stockFilter === "LOW_STOCK" ? "Daftar Stok Kritis (â‰¤ 3 Pcs)" : stockFilter === "TOP_SOLD" ? "Daftar Terjual Terbanyak" : "Stok & Kuota Terkini"}
+          {stockFilter === "LOW_STOCK" ? "Daftar Stok Kritis (≤ 3 Pcs)" : stockFilter === "TOP_SOLD" ? "Daftar Terjual Terbanyak" : "Stok & Kuota Terkini"}
         </span>
         <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
       </div>
@@ -430,7 +430,7 @@ export default function StokPage() {
                     <p style={{ fontWeight: 600, color: s.item?.is_active ? "var(--text-primary)" : "var(--text-muted)" }}>{s.item?.nama ?? `Item #${s.item_id}`}</p>
                     {!s.item?.is_active && <span style={{ fontSize: 10, color: "var(--text-muted)" }}>nonaktif</span>}
                   </td>
-                  <td style={{ fontSize: 12 }}>{s.item?.item_type ? `${s.item.item_type.icon} ${s.item.item_type.nama}` : "â€”"}</td>
+                  <td style={{ fontSize: 12 }}>{s.item?.item_type ? `${s.item.item_type.icon} ${s.item.item_type.nama}` : "—"}</td>
                   <td style={{ fontSize: 12 }}>
                     {s.item?.harga_promo ? (
                       <>
@@ -467,10 +467,10 @@ export default function StokPage() {
                 <tr>
                   <td colSpan={7} style={{ textAlign: "center", padding: 48, color: "var(--text-muted)" }}>
                     {stockFilter === "LOW_STOCK"
-                      ? "âœ… Semua stok dalam kondisi aman (tidak ada stok kritis â‰¤ 3)."
+                      ? "✅ Semua stok dalam kondisi aman (tidak ada stok kritis ≤ 3)."
                       : stockFilter === "TOP_SOLD"
-                      ? "ðŸ“¦ Belum ada item yang terjual."
-                      : "ðŸ“¦ Tidak ada data stok"
+                      ? "📦 Belum ada item yang terjual."
+                      : "📦 Tidak ada data stok"
                     }
                   </td>
                 </tr>
@@ -486,7 +486,7 @@ export default function StokPage() {
         />
       </div>
 
-      {/* â”€â”€â”€ SECTION 3: Workshop Ticket Sales â”€â”€â”€ */}
+      {/* ─── SECTION 3: Workshop Ticket Sales ─── */}
       <div style={{ marginTop: 32, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ height: 1, flex: 1, background: "var(--border)" }} />
         <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
@@ -525,7 +525,7 @@ export default function StokPage() {
         )}
       </div>
 
-      {/* â”€â”€â”€ Modal: Update / Init Stok â”€â”€â”€ */}
+      {/* ─── Modal: Update / Init Stok ─── */}
       {(!!editing || !!addingFrom) && (
         <Modal title={modalTitle} onClose={() => { setEditing(null); setAddingFrom(null); }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -539,16 +539,16 @@ export default function StokPage() {
               ) : editing && (
                 <>
                   <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Stok saat ini: <strong style={{ color: "var(--text-primary)", fontSize: 16 }}>{editing.qty_available} {editing.item?.satuan}</strong></p>
-                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>Terjual: {editing.qty_sold} â€¢ Reserved: {editing.qty_reserved}</p>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>Terjual: {editing.qty_sold} • Reserved: {editing.qty_reserved}</p>
                 </>
               )}
             </div>
 
-            {/* Mode selector â€” hanya untuk update, bukan init */}
+            {/* Mode selector — hanya untuk update, bukan init */}
             {editing && (
               <Field label="Mode Update">
                 <div style={{ display: "flex", gap: 8 }}>
-                  {([["set", "âš™ Set Langsung"], ["add", "+ Tambah"], ["subtract", "âˆ’ Kurangi"]] as [EditMode, string][]).map(([m, label]) => (
+                  {([["set", "⚙️ Set Langsung"], ["add", "+ Tambah"], ["subtract", "− Kurangi"]] as [EditMode, string][]).map(([m, label]) => (
                     <button key={m} className={`btn btn-sm ${editMode === m ? "btn-primary" : "btn-secondary"}`} style={{ flex: 1, justifyContent: "center" }} onClick={() => setEditMode(m)}>
                       {label}
                     </button>
@@ -584,14 +584,14 @@ export default function StokPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 24 }}>ðŸ—‘ï¸</span>
+                <span style={{ fontSize: 24 }}>🗑️</span>
                 <div>
                   <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{resettingStok.nama}</p>
                 </div>
               </div>
             </div>
             <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", fontSize: 13, color: "#f59e0b", display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>âš ï¸</span>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
               <span>Anda yakin ingin mereset stok ini kembali ke 0? Riwayat penjualan tidak akan hilang.</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
