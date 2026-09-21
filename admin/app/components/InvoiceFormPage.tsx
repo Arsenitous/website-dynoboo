@@ -74,9 +74,15 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan, p
 
   // Add Product state
   const [itemTypes, setItemTypes] = useState<ItemType[]>([]);
+  const [showAddItemSelector, setShowAddItemSelector] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
-  const [productForm, setProductForm] = useState({ item_type_id: "", nama: "", deskripsi: "", harga_normal: "", harga_promo: "", satuan: "Pcs", qty_available: "0" });
+  const [productForm, setProductForm] = useState({ item_type_id: "", nama: "", deskripsi: "", harga_normal: "", harga_promo: "", satuan: "Pcs", is_active: true, qty_available: "0" });
   const [savingProduct, setSavingProduct] = useState(false);
+
+  // Add Workshop state
+  const [showAddWorkshop, setShowAddWorkshop] = useState(false);
+  const [workshopForm, setWorkshopForm] = useState({ nama_workshop: "", tanggal: new Date().toISOString().split("T")[0], harga_normal: "", harga_promo: "", fasilitas: "", status: "UPCOMING" as "ACTIVE" | "UPCOMING" | "CLOSED", is_active: true });
+  const [savingWorkshop, setSavingWorkshop] = useState(false);
 
   // Draft catatan
   const [drafts, setDrafts] = useState<CatatanDraft[]>([]);
@@ -121,9 +127,18 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan, p
 
   useEffect(() => { load(); }, [load]);
 
+  const openAddItemSelector = () => setShowAddItemSelector(true);
+
   const openAddProductModal = () => {
-    setProductForm({ item_type_id: itemTypes.length > 0 ? String(itemTypes[0].id) : "", nama: "", deskripsi: "", harga_normal: "", harga_promo: "", satuan: "Pcs", qty_available: "0" });
+    setShowAddItemSelector(false);
+    setProductForm({ item_type_id: itemTypes.length > 0 ? String(itemTypes[0].id) : "", nama: "", deskripsi: "", harga_normal: "", harga_promo: "", satuan: "Pcs", is_active: true, qty_available: "0" });
     setShowAddProduct(true);
+  };
+
+  const openAddWorkshopModal = () => {
+    setShowAddItemSelector(false);
+    setWorkshopForm({ nama_workshop: "", tanggal: new Date().toISOString().split("T")[0], harga_normal: "", harga_promo: "", fasilitas: "", status: "UPCOMING", is_active: true });
+    setShowAddWorkshop(true);
   };
 
   const saveNewProduct = async () => {
@@ -136,7 +151,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan, p
       harga_normal: Number(productForm.harga_normal),
       harga_promo: productForm.harga_promo ? Number(productForm.harga_promo) : null,
       satuan: productForm.satuan,
-      is_active: true,
+      is_active: productForm.is_active,
       qty_available: Number(productForm.qty_available),
     };
     
@@ -148,6 +163,29 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan, p
         const price = newItem.harga_promo ?? newItem.harga_normal;
         setItems(prev => [...prev, { item_id: newItem.id, description: newItem.nama, qty: 1, satuan: newItem.satuan, harga_satuan: price }]);
         setShowAddProduct(false);
+    }
+  };
+
+  const saveNewWorkshop = async () => {
+    if (!workshopForm.nama_workshop || !workshopForm.harga_normal) return;
+    setSavingWorkshop(true);
+    const payload = {
+      nama_workshop: workshopForm.nama_workshop,
+      tanggal: workshopForm.tanggal,
+      harga_normal: Number(workshopForm.harga_normal),
+      harga_promo: workshopForm.harga_promo ? Number(workshopForm.harga_promo) : null,
+      fasilitas: workshopForm.fasilitas || null,
+      status: workshopForm.status,
+      is_active: workshopForm.is_active,
+    };
+    const res = await fetch("/api/workshops", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    setSavingWorkshop(false);
+    if (res.ok) {
+      const newWs = await res.json();
+      setWorkshops(prev => [...prev, newWs]);
+      const price = newWs.harga_promo ? Number(newWs.harga_promo) : Number(newWs.harga_normal);
+      setItems(prev => [...prev, { description: newWs.nama_workshop, qty: 1, satuan: "Tiket", harga_satuan: price }]);
+      setShowAddWorkshop(false);
     }
   };
 
@@ -388,7 +426,7 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan, p
               <p style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Item / Produk</p>
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="btn btn-secondary btn-sm" onClick={() => setShowKatalog(true)}><Icons.Package /> Dari Katalog</button>
-                <button className="btn btn-secondary btn-sm" onClick={openAddProductModal}><Icons.Plus /> Produk Baru</button>
+                <button className="btn btn-secondary btn-sm" onClick={openAddItemSelector}><Icons.Plus /> Tambah Item</button>
               </div>
             </div>
 
@@ -745,41 +783,175 @@ export default function InvoiceFormPage({ onSuccess, onCancel, prefillPesanan, p
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setShowAddProduct(false)}><Icons.X /></button>
             </div>
             <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="Tipe Produk">
-                <CustomSelect 
-                  value={productForm.item_type_id} 
-                  onChange={v => setProductForm(f => ({ ...f, item_type_id: v }))} 
-                  options={itemTypes.map(t => ({ value: String(t.id), label: `${t.icon} ${t.nama}` }))} 
-                />
+              <Field label="Tipe Item" required>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <CustomSelect
+                      value={productForm.item_type_id}
+                      onChange={v => setProductForm(f => ({ ...f, item_type_id: v }))}
+                      options={[{ value: "", label: "— Pilih Tipe —" }, ...itemTypes.map(t => ({ value: String(t.id), label: `${t.icon} ${t.nama}` }))]}
+                    />
+                  </div>
+                </div>
               </Field>
-              <Field label="Nama Produk" required>
-                <input className="input" placeholder="Nama..." value={productForm.nama} onChange={e => setProductForm(f => ({ ...f, nama: e.target.value }))} />
+              <Field label="Nama Item" required>
+                <input className="input" placeholder="Workshop Animal Pot, Boneka Beruang..." value={productForm.nama} onChange={e => setProductForm(f => ({ ...f, nama: e.target.value }))} autoFocus />
               </Field>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <Field label="Deskripsi">
+                <textarea className="input" rows={2} placeholder="Deskripsi singkat produk..." value={productForm.deskripsi} onChange={e => setProductForm(f => ({ ...f, deskripsi: e.target.value }))} />
+              </Field>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Field label="Harga Normal" required>
-                  <input className="input" type="number" min="0" placeholder="0" value={productForm.harga_normal} onChange={e => setProductForm(f => ({ ...f, harga_normal: e.target.value }))} />
+                  <input className="input" type="number" placeholder="100000" value={productForm.harga_normal} onChange={e => setProductForm(f => ({ ...f, harga_normal: e.target.value }))} />
                 </Field>
-                <Field label="Harga Promo (opsional)">
-                  <input className="input" type="number" min="0" placeholder="0" value={productForm.harga_promo} onChange={e => setProductForm(f => ({ ...f, harga_promo: e.target.value }))} />
+                <Field label="Harga Promo">
+                  <input className="input" type="number" placeholder="90000" value={productForm.harga_promo} onChange={e => setProductForm(f => ({ ...f, harga_promo: e.target.value }))} />
                 </Field>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Field label="Satuan">
-                  <input className="input" placeholder="Pcs, Rim..." value={productForm.satuan} onChange={e => setProductForm(f => ({ ...f, satuan: e.target.value }))} />
+                  <CustomSelect value={productForm.satuan} onChange={v => setProductForm(f => ({ ...f, satuan: v }))} options={[
+                    { value: "Pcs", label: "Pcs" },
+                    { value: "Slot", label: "Slot" },
+                    { value: "Set", label: "Set" },
+                    { value: "Paket", label: "Paket" },
+                  ]} />
                 </Field>
                 <Field label="Stok Awal">
-                  <input className="input" type="number" min="0" placeholder="0" value={productForm.qty_available} onChange={e => setProductForm(f => ({ ...f, qty_available: e.target.value }))} />
+                  <input className="input" type="number" placeholder="0" value={productForm.qty_available} onChange={e => setProductForm(f => ({ ...f, qty_available: e.target.value }))} />
                 </Field>
               </div>
+              <Field label="Status">
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div className={`toggle ${productForm.is_active ? "on" : ""}`} onClick={() => setProductForm(f => ({ ...f, is_active: !f.is_active }))} />
+                  <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{productForm.is_active ? "Aktif (tampil & bisa dijual)" : "Nonaktif (tersembunyi)"}</span>
+                </div>
+              </Field>
             </div>
-            <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button className="btn btn-secondary" onClick={() => setShowAddProduct(false)}>Batal</button>
-              <button className="btn btn-primary" onClick={saveNewProduct} disabled={savingProduct || !productForm.nama || !productForm.harga_normal}>
-                <Icons.Save /> {savingProduct ? "Menyimpan..." : "Simpan & Tambahkan"}
-              </button>
+            <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <button className="btn btn-secondary" onClick={() => { setShowAddProduct(false); setShowAddItemSelector(true); }}>← Kembali</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary" onClick={() => setShowAddProduct(false)}>Batal</button>
+                <button className="btn btn-primary" onClick={saveNewProduct} disabled={savingProduct || !productForm.nama || !productForm.harga_normal || !productForm.item_type_id}>
+                  <Icons.Save /> {savingProduct ? "Menyimpan..." : "Simpan & Tambahkan"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
+        </ModalPortal>
+      )}
+
+      {/* ── Add Item Type Selector Modal ── */}
+      {showAddItemSelector && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setShowAddItemSelector(false)}>
+            <div className="modal-box" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                <div>
+                  <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>Tambah Item Baru</h3>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>Pilih jenis item yang ingin ditambahkan ke invoice & master data</p>
+                </div>
+                <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setShowAddItemSelector(false)}><Icons.X /></button>
+              </div>
+              <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {/* Produk Card */}
+                <button
+                  onClick={openAddProductModal}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    gap: 12, padding: "28px 16px", borderRadius: 12, cursor: "pointer",
+                    background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.25)",
+                    transition: "all 0.2s", textAlign: "center",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(56,189,248,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(56,189,248,0.5)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(56,189,248,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(56,189,248,0.25)"; }}
+                >
+                  <span style={{ fontSize: 36 }}>📦</span>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>Produk</p>
+                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Tambah produk baru ke master katalog & invoice</p>
+                  </div>
+                </button>
+                {/* Workshop Card */}
+                <button
+                  onClick={openAddWorkshopModal}
+                  style={{
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    gap: 12, padding: "28px 16px", borderRadius: 12, cursor: "pointer",
+                    background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.25)",
+                    transition: "all 0.2s", textAlign: "center",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(167,139,250,0.12)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(167,139,250,0.5)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(167,139,250,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(167,139,250,0.25)"; }}
+                >
+                  <span style={{ fontSize: 36 }}>🎫</span>
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>Workshop</p>
+                    <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>Tambah workshop baru ke master & invoice</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ── Add New Workshop Modal ── */}
+      {showAddWorkshop && (
+        <ModalPortal>
+          <div className="modal-overlay" onClick={() => setShowAddWorkshop(false)}>
+            <div className="modal-box" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                <div>
+                  <h3 style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>🎫 Tambah Workshop Baru</h3>
+                  <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 3 }}>Workshop akan tersimpan di master data & otomatis masuk invoice</p>
+                </div>
+                <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setShowAddWorkshop(false)}><Icons.X /></button>
+              </div>
+              <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+                <Field label="Nama Workshop" required>
+                  <input className="input" placeholder="Workshop Animal Pot - Juli 2026" value={workshopForm.nama_workshop} onChange={e => setWorkshopForm(f => ({ ...f, nama_workshop: e.target.value }))} autoFocus />
+                </Field>
+                <Field label="Tanggal" required>
+                  <input className="input" type="date" value={workshopForm.tanggal} onChange={e => setWorkshopForm(f => ({ ...f, tanggal: e.target.value }))} />
+                </Field>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <Field label="Harga Normal">
+                    <input className="input" placeholder="Rp 100.000" value={workshopForm.harga_normal} onChange={e => setWorkshopForm(f => ({ ...f, harga_normal: e.target.value }))} />
+                  </Field>
+                  <Field label="Harga Promo">
+                    <input className="input" placeholder="Rp 90.000" value={workshopForm.harga_promo} onChange={e => setWorkshopForm(f => ({ ...f, harga_promo: e.target.value }))} />
+                  </Field>
+                </div>
+                <Field label="Fasilitas">
+                  <textarea className="input" rows={3} placeholder="Alat rajut, yarn, pola, sertifikat..." value={workshopForm.fasilitas} onChange={e => setWorkshopForm(f => ({ ...f, fasilitas: e.target.value }))} style={{ resize: "vertical" }} />
+                </Field>
+                <Field label="Status Event">
+                  <CustomSelect value={workshopForm.status} onChange={v => setWorkshopForm(f => ({ ...f, status: v as "ACTIVE" | "UPCOMING" | "CLOSED" }))} options={[
+                    { value: "ACTIVE", label: "✅ Aktif", color: "#34d399" },
+                    { value: "UPCOMING", label: "⏳ Upcoming", color: "#fbbf24" },
+                    { value: "CLOSED", label: "🔒 Tutup", color: "#94a3b8" },
+                  ]} />
+                </Field>
+                <Field label="Status Aktif (Tampil)">
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className={`toggle ${workshopForm.is_active ? "on" : ""}`} onClick={() => setWorkshopForm(f => ({ ...f, is_active: !f.is_active }))} />
+                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>{workshopForm.is_active ? "Aktif (Bisa diakses)" : "Nonaktif (Disembunyikan)"}</span>
+                  </div>
+                </Field>
+              </div>
+              <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", gap: 8 }}>
+                <button className="btn btn-secondary" onClick={() => { setShowAddWorkshop(false); setShowAddItemSelector(true); }}>← Kembali</button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-secondary" onClick={() => setShowAddWorkshop(false)}>Batal</button>
+                  <button className="btn btn-primary" onClick={saveNewWorkshop} disabled={savingWorkshop || !workshopForm.nama_workshop || !workshopForm.harga_normal}>
+                    <Icons.Save /> {savingWorkshop ? "Menyimpan..." : "Simpan & Tambahkan"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </ModalPortal>
       )}
     </div>
