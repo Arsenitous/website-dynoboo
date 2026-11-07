@@ -15,9 +15,10 @@ type Props = {
 
 const STATUS_OPTIONS = [
   { value: "", label: "Invoice Aktif (Default)" },
-  { value: "UNPAID", label: "○ UNPAID", color: "#f87171" },
-  { value: "DP", label: "◑ DP", color: "#fbbf24" },
-  { value: "PAID", label: "✓ PAID", color: "#34d399" },
+  { value: "BELUM_LUNAS", label: "⏳ Belum Lunas (DP & UNPAID)", color: "#fbbf24" },
+  { value: "UNPAID", label: "○ UNPAID (Belum Bayar)", color: "#f87171" },
+  { value: "DP", label: "◑ DP (Uang Muka)", color: "#fbbf24" },
+  { value: "PAID", label: "✓ PAID (Lunas)", color: "#34d399" },
   { value: "CANCELLED", label: "✕ Dibatalkan (CANCELLED)", color: "#94a3b8" },
   { value: "ALL", label: "Semua (Termasuk Dibatalkan)" },
 ];
@@ -103,6 +104,9 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
       matchesStatus = inv.status_pembayaran !== "CANCELLED";
     } else if (filterStatus === "ALL") {
       matchesStatus = true;
+    } else if (filterStatus === "BELUM_LUNAS") {
+      // Belum Lunas mencakup status UNPAID dan DP (yang masih ada sisa tagihan)
+      matchesStatus = ["UNPAID", "DP"].includes(inv.status_pembayaran);
     } else {
       matchesStatus = inv.status_pembayaran === filterStatus;
     }
@@ -196,7 +200,11 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
 
     const totalInv = reportList.length;
     const grandTotalSum = reportList.reduce((s, i) => s + Number(i.grand_total), 0);
-    const paidSum = reportList.filter(i => i.status_pembayaran === "PAID").reduce((s, i) => s + Number(i.grand_total), 0);
+    const paidSum = reportList.reduce((s, i) => {
+      if (i.status_pembayaran === "PAID") return s + Number(i.grand_total);
+      if (i.status_pembayaran === "DP") return s + (Number(i.grand_total) - Number(i.sisa_tagihan));
+      return s;
+    }, 0);
     const unpaidSum = reportList.filter(i => ["UNPAID", "DP"].includes(i.status_pembayaran)).reduce((s, i) => s + Number(i.sisa_tagihan), 0);
 
     const printWindow = window.open("", "_blank");
@@ -313,7 +321,7 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
         {[
           { label: "Total Invoice", value: String(countActive), color: "#a78bfa", bg: "rgba(124,58,237,0.12)", filterKey: "", active: filterStatus === "" },
           { label: "Revenue (PAID)", value: fmtRp(totalRevenue), color: "#34d399", bg: "rgba(52,211,153,0.12)", filterKey: "PAID", active: filterStatus === "PAID" },
-          { label: "Belum Lunas", value: fmtRp(totalUnpaid), color: "#fbbf24", bg: "rgba(245,158,11,0.12)", filterKey: "UNPAID", active: filterStatus === "UNPAID" },
+          { label: "Belum Lunas", value: fmtRp(totalUnpaid), color: "#fbbf24", bg: "rgba(245,158,11,0.12)", filterKey: "BELUM_LUNAS", active: filterStatus === "BELUM_LUNAS" },
           { label: "Dibatalkan", value: String(countCancelled), color: "#f87171", bg: "rgba(239,68,68,0.12)", filterKey: "CANCELLED", active: filterStatus === "CANCELLED" },
         ].map(s => (
           <div
@@ -327,7 +335,7 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
               boxShadow: s.active ? `0 0 16px ${s.color}30` : "none",
               background: s.active ? `${s.color}10` : "var(--bg-card)",
             }}
-            onClick={() => setFilterStatus(s.filterKey)}
+            onClick={() => setFilterStatus(prev => prev === s.filterKey ? "" : s.filterKey)}
             title={`Klik untuk memfilter: ${s.label}`}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -414,7 +422,7 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
           )}
           {filterStatus && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, padding: "3px 10px 3px 8px", borderRadius: 20, background: "rgba(56,189,248,0.12)", border: "1px solid rgba(56,189,248,0.3)", color: "#38bdf8" }}>
-              🔖 {STATUS_OPTIONS.find(s => s.value === filterStatus)?.label}
+              🔖 {STATUS_OPTIONS.find(s => s.value === filterStatus)?.label || (filterStatus === "BELUM_LUNAS" ? "⏳ Belum Lunas (DP & UNPAID)" : filterStatus)}
               <button onClick={() => setFilterStatus("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#38bdf8", fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
             </span>
           )}
@@ -468,7 +476,14 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
                     {inv.customer_contact && <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{inv.customer_contact}</p>}
                   </td>
                   <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{inv.invoice_type?.nama ?? "—"}</td>
-                  <td style={{ fontWeight: 700, color: "var(--text-primary)" }}>{fmtRp(inv.grand_total)}</td>
+                  <td style={{ fontWeight: 700, color: "var(--text-primary)" }}>
+                    {fmtRp(inv.grand_total)}
+                    {inv.status_pembayaran === "DP" && Number(inv.sisa_tagihan) > 0 && (
+                      <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#f59e0b", marginTop: 2 }}>
+                        Sisa: {fmtRp(inv.sisa_tagihan)}
+                      </span>
+                    )}
+                  </td>
                   <td><InvoiceStatusBadge status={inv.status_pembayaran} /></td>
                   <td onClick={e => e.stopPropagation()}>
                     <div style={{ display: "flex", gap: 6 }}>
@@ -505,7 +520,7 @@ export default function InvoiceListPage({ onViewInvoice, onCreateInvoice, initia
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} style={{ textAlign: "center", padding: 48, color: "var(--text-muted)" }}>
-                    {filterStatus === "CANCELLED" ? "🚫 Tidak ada invoice yang dibatalkan" : "🧾 Belum ada invoice"}
+                    {filterStatus === "CANCELLED" ? "🚫 Tidak ada invoice yang dibatalkan" : filterStatus === "BELUM_LUNAS" ? "🎉 Semua tagihan sudah lunas!" : "🧾 Belum ada invoice"}
                   </td>
                 </tr>
               )}
